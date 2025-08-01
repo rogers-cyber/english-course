@@ -155,7 +155,7 @@ hint = hints.get(word, correct_meaning)
 st.markdown(f"*Hint:* {hint}")
 
 # Play audio of the word - key by the word to force reload
-st.markdown(generate_audio(word), unsafe_allow_html=True, key=f"audio_{word}")
+st.markdown(generate_audio(word), unsafe_allow_html=True)
 
 options = list(lesson["vocab"].values())
 random.shuffle(options)
