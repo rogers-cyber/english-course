@@ -33,8 +33,10 @@ def hash_pass(pw): return hashlib.sha256(pw.encode()).hexdigest()
 
 def register_user(username, password):
     c = conn.cursor()
-    c.execute("INSERT OR IGNORE INTO users (username, password, xp, last_challenge, streak) VALUES (?, ?, 0, '', 0)", 
-              (username, hash_pass(password)))
+    c.execute(
+        "INSERT OR IGNORE INTO users (username, password, xp, last_challenge, streak) VALUES (?, ?, 0, NULL, 0)", 
+        (username, hash_pass(password))
+    )
     conn.commit()
 
 def login_user(username, password):
