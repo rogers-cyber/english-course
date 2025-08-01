@@ -127,7 +127,7 @@ st.set_page_config(page_title="Daily Language Lesson", layout="centered")
 st.title("🌟 Daily Language Lesson")
 
 # Load progress
-xp, streak = get_progress()
+xp, _ = get_progress()
 streak = get_streak()
 level = get_level(xp)
 
@@ -136,61 +136,46 @@ st.info(f"Your current level is **{level.capitalize()}** with **{xp} XP** and a 
 # Select today's lesson based on level
 lesson = lessons[level]
 
-# Maintain the current vocab word in session state to keep it stable during reruns
-if "vocab_word" not in st.session_state or st.session_state.get("level") != level:
-    st.session_state.vocab_word = random.choice(list(lesson["vocab"].keys()))
-    st.session_state.level = level
+# -------- Vocabulary Quiz Form --------
+with st.form("vocab_form"):
+    word = random.choice(list(lesson["vocab"].keys()))
+    correct_meaning = lesson["vocab"][word]
 
-word = st.session_state.vocab_word
-correct_meaning = lesson["vocab"][word]
+    st.subheader("📖 Vocabulary")
+    st.markdown(f"**Your word:** {word}")
+    hint = hints.get(word, correct_meaning)
+    st.markdown(f"*Hint:* {hint}")
+    st.markdown(generate_audio(word), unsafe_allow_html=True)
 
-# Vocabulary quiz
-st.subheader("📖 Vocabulary")
+    options = list(lesson["vocab"].values())
+    random.shuffle(options)
 
-# Show the word
-st.markdown(f"**Your word:** {word}")
+    choice = st.selectbox(f"Choose the correct meaning of **{word}**:", options, key="vocab_choice")
 
-# Show a hint (simplified meaning)
-hint = hints.get(word, correct_meaning)
-st.markdown(f"*Hint:* {hint}")
+    submitted_vocab = st.form_submit_button("Submit Vocabulary")
 
-# Play audio of the word - key by the word to force reload
-st.markdown(generate_audio(word), unsafe_allow_html=True)
+    if submitted_vocab:
+        if choice == correct_meaning:
+            st.success("Correct! +5 XP")
+            update_progress(5, streak)
+        else:
+            st.error(f"Wrong. Correct answer: {correct_meaning}")
 
-options = list(lesson["vocab"].values())
-random.shuffle(options)
-choice = st.selectbox(f"Choose the correct meaning of **{word}**:", options, key="vocab_choice")
+# -------- Grammar Quiz Form --------
+with st.form("grammar_form"):
+    gq = random.choice(lesson["grammar"])
+    st.subheader("📝 Grammar")
+    st.write(gq["sentence"])
+    g_choice = st.selectbox("Choose the correct word:", gq["options"], key="grammar_choice")
 
-if st.button("Submit Vocabulary"):
-    if choice == correct_meaning:
-        st.success("Correct! +5 XP")
-        update_progress(5, streak)
-        # Change to a new word after correct answer
-        st.session_state.vocab_word = random.choice(list(lesson["vocab"].keys()))
-        st.experimental_rerun()
-    else:
-        st.error(f"Wrong. Correct answer: {correct_meaning}")
+    submitted_grammar = st.form_submit_button("Submit Grammar")
 
-# Grammar quiz
-st.markdown("---")
-st.subheader("📝 Grammar")
-if "grammar_question" not in st.session_state or st.session_state.get("level") != level:
-    st.session_state.grammar_question = random.choice(lesson["grammar"])
-    st.session_state.level = level
-
-gq = st.session_state.grammar_question
-st.write(gq["sentence"])
-g_choice = st.selectbox("Choose the correct word:", gq["options"], key="grammar_choice")
-
-if st.button("Submit Grammar"):
-    if g_choice == gq["answer"]:
-        st.success("Correct! +5 XP")
-        update_progress(5, streak)
-        # Change grammar question after correct answer
-        st.session_state.grammar_question = random.choice(lesson["grammar"])
-        st.experimental_rerun()
-    else:
-        st.error(f"Wrong. Correct answer: {gq['answer']}")
+    if submitted_grammar:
+        if g_choice == gq["answer"]:
+            st.success("Correct! +5 XP")
+            update_progress(5, streak)
+        else:
+            st.error(f"Wrong. Correct answer: {gq['answer']}")
 
 # Show XP and streak at bottom
 st.markdown("---")
