@@ -2,9 +2,8 @@ import streamlit as st
 import random, tempfile, base64, sqlite3, os, datetime
 from gtts import gTTS
 
-# --------------------
-# DATABASE SETUP
-# --------------------
+# ----------- DATABASE SETUP -----------
+
 def init_db():
     conn = sqlite3.connect("progress.db", check_same_thread=False)
     c = conn.cursor()
@@ -20,68 +19,124 @@ def init_db():
 
 conn = init_db()
 
-# --------------------
-# VOCAB & GRAMMAR DATA (example sets for 3 levels)
-# --------------------
+# ----------- DATA SETUP -----------
+
+# Vocabulary now includes sentence examples too
 lessons = {
     "beginner": {
         "vocab": {
-            "apple": "a fruit",
-            "run": "to move quickly",
-            "book": "a set of pages",
+            "apple": {
+                "meaning": "a fruit",
+                "example": "I ate a red apple for breakfast."
+            },
+            "run": {
+                "meaning": "to move quickly",
+                "example": "She can run very fast."
+            },
+            "book": {
+                "meaning": "a set of pages",
+                "example": "This book is about history."
+            },
+            "happy": {
+                "meaning": "feeling joy",
+                "example": "He feels happy today."
+            },
+            "dog": {
+                "meaning": "a common pet animal",
+                "example": "The dog barked loudly."
+            },
         },
         "grammar": [
-            {"sentence": "She ___ happy.", "options": ["is", "are", "am"], "answer": "is"}
-        ]
+            {"sentence": "She ___ happy.", "options": ["is", "are", "am"], "answer": "is"},
+            {"sentence": "They ___ dogs.", "options": ["have", "has", "haves"], "answer": "have"},
+        ],
     },
     "intermediate": {
         "vocab": {
-            "challenge": "a difficult task",
-            "improve": "to get better",
-            "travel": "to go from one place to another",
+            "challenge": {
+                "meaning": "a difficult task",
+                "example": "This math problem is a big challenge."
+            },
+            "improve": {
+                "meaning": "to get better",
+                "example": "Practice helps you improve your skills."
+            },
+            "travel": {
+                "meaning": "to go from one place to another",
+                "example": "We like to travel during holidays."
+            },
+            "advice": {
+                "meaning": "a suggestion",
+                "example": "My teacher gave me good advice."
+            },
+            "weather": {
+                "meaning": "the state of the air outside",
+                "example": "The weather is sunny today."
+            },
         },
         "grammar": [
-            {"sentence": "They ___ going to the park.", "options": ["is", "are", "am"], "answer": "are"}
-        ]
+            {"sentence": "They ___ going to the park.", "options": ["is", "are", "am"], "answer": "are"},
+            {"sentence": "I ___ never seen that movie.", "options": ["have", "has", "had"], "answer": "have"},
+        ],
     },
     "advanced": {
         "vocab": {
-            "meticulous": "showing great attention to detail",
-            "ubiquitous": "present everywhere",
-            "candid": "truthful and straightforward",
+            "meticulous": {
+                "meaning": "showing great attention to detail",
+                "example": "She is meticulous when organizing her desk."
+            },
+            "ubiquitous": {
+                "meaning": "present everywhere",
+                "example": "Smartphones are ubiquitous these days."
+            },
+            "candid": {
+                "meaning": "truthful and straightforward",
+                "example": "He gave a candid answer to the question."
+            },
+            "benevolent": {
+                "meaning": "kind and generous",
+                "example": "The benevolent leader helped the community."
+            },
+            "paradox": {
+                "meaning": "a seemingly contradictory statement",
+                "example": "The statement 'less is more' is a paradox."
+            },
         },
         "grammar": [
-            {"sentence": "Had I ___ known, I would have come.", "options": ["have", "has", "had"], "answer": "had"}
-        ]
-    }
+            {"sentence": "Had I ___ known, I would have come.", "options": ["have", "has", "had"], "answer": "had"},
+            {"sentence": "No sooner ___ she arrive than it started raining.", "options": ["did", "do", "does"], "answer": "did"},
+        ],
+    },
 }
 
-# Optional simpler hints for easier understanding (can be customized)
+# Hints remain simple for easier understanding
 hints = {
     "apple": "A common fruit, often red or green.",
     "run": "To move fast on foot.",
     "book": "Pages bound together to read.",
+    "happy": "Feeling joy or pleasure.",
+    "dog": "A common pet animal.",
     "challenge": "Something difficult to do.",
     "improve": "To get better at something.",
     "travel": "To go to different places.",
+    "advice": "A helpful suggestion.",
+    "weather": "The state of the air outside.",
     "meticulous": "Very careful and precise.",
     "ubiquitous": "Found everywhere or very common.",
     "candid": "Honest and straightforward.",
+    "benevolent": "Kind and generous.",
+    "paradox": "A statement that seems contradictory.",
 }
 
-# --------------------
-# UTILS
-# --------------------
+# ----------- UTILS -----------
+
 def generate_audio(word, lang="en"):
     tts = gTTS(text=word, lang=lang)
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as fp:
         tts.save(fp.name)
         audio_bytes = open(fp.name, "rb").read()
     os.unlink(fp.name)
-
     audio_b64 = base64.b64encode(audio_bytes).decode()
-    # Add a unique id (nonce) using the word + current timestamp to bust cache
-    nonce = f"{word}_{int(datetime.datetime.now().timestamp())}"
     audio_html = f"""
     <audio controls autoplay>
         <source src="data:audio/mp3;base64,{audio_b64}" type="audio/mp3">
@@ -128,13 +183,12 @@ def get_level(xp):
     else:
         return "advanced"
 
-# --------------------
-# APP START
-# --------------------
-st.set_page_config(page_title="Daily Language Lesson", layout="centered")
-st.title("🌟 Daily Language Lesson")
+# ----------- APP START -----------
 
-# Load progress
+st.set_page_config(page_title="English Learning Journey", layout="centered")
+st.title("🌟 English Learning Journey")
+
+# Load user progress
 xp, _ = get_progress()
 streak = get_streak()
 level = get_level(xp)
@@ -143,21 +197,23 @@ st.info(f"Your current level is **{level.capitalize()}** with **{xp} XP** and a 
 
 lesson = lessons[level]
 
-# Initialize session state for vocab word and options if not exist
+# Initialize vocab session state on first run
 if "vocab_word" not in st.session_state:
     st.session_state.vocab_word = random.choice(list(lesson["vocab"].keys()))
-    st.session_state.vocab_options = list(lesson["vocab"].values())
-    random.shuffle(st.session_state.vocab_options)
+    vocab_options = [lesson["vocab"][w]["meaning"] for w in lesson["vocab"]]
+    random.shuffle(vocab_options)
+    st.session_state.vocab_options = vocab_options
 
-# -------- Vocabulary Quiz Form --------
+# -------- Vocabulary Quiz --------
 with st.form("vocab_form"):
     word = st.session_state.vocab_word
-    correct_meaning = lesson["vocab"][word]
+    correct_meaning = lesson["vocab"][word]["meaning"]
+    example_sentence = lesson["vocab"][word]["example"]
 
     st.subheader("📖 Vocabulary")
     st.markdown(f"**Your word:** {word}")
-    hint = hints.get(word, correct_meaning)
-    st.markdown(f"*Hint:* {hint}")
+    st.markdown(f"*Hint:* {hints.get(word, correct_meaning)}")
+    st.markdown(f"**Example:** {example_sentence}")
     st.markdown(generate_audio(word), unsafe_allow_html=True)
 
     choice = st.selectbox(f"Choose the correct meaning of **{word}**:", st.session_state.vocab_options, key="vocab_choice")
@@ -169,13 +225,15 @@ with st.form("vocab_form"):
             st.success("Correct! +5 XP")
             update_progress(5, streak)
         else:
-            st.error(f"Wrong. Correct answer: {correct_meaning}")
-        # Reset vocab word and options after submission for next quiz
-        st.session_state.vocab_word = random.choice(list(lesson["vocab"].keys()))
-        st.session_state.vocab_options = list(lesson["vocab"].values())
-        random.shuffle(st.session_state.vocab_options)
+            st.error(f"Wrong. The correct answer is: {correct_meaning}")
 
-# -------- Grammar Quiz Form --------
+        # Pick a new vocab word and shuffle options for next round
+        st.session_state.vocab_word = random.choice(list(lesson["vocab"].keys()))
+        vocab_options = [lesson["vocab"][w]["meaning"] for w in lesson["vocab"]]
+        random.shuffle(vocab_options)
+        st.session_state.vocab_options = vocab_options
+
+# -------- Grammar Quiz --------
 with st.form("grammar_form"):
     gq = random.choice(lesson["grammar"])
     st.subheader("📝 Grammar")
@@ -189,8 +247,9 @@ with st.form("grammar_form"):
             st.success("Correct! +5 XP")
             update_progress(5, streak)
         else:
-            st.error(f"Wrong. Correct answer: {gq['answer']}")
+            st.error(f"Wrong. The correct answer is: {gq['answer']}")
 
-# Show XP and streak at bottom
+# -------- Show Progress --------
 st.markdown("---")
 st.write(f"**XP:** {xp} | **Streak:** {streak} days | **Level:** {level.capitalize()}")
+
