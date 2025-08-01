@@ -8,10 +8,12 @@ import os
 import datetime
 from gtts import gTTS
 
-# Rerun function for Streamlit 1.29+
-from streamlit.runtime.scriptrunner.script_runner import RerunException, ScriptRunner
+# Import RerunException and get_script_run_ctx for rerun support
+from streamlit.runtime.scriptrunner import RerunException, get_script_run_ctx
+
+# --------- Rerun helper function ---------
 def rerun():
-    raise RerunException(ScriptRunner.get_script_run_ctx())
+    raise RerunException(get_script_run_ctx())
 
 # -------- DATABASE SETUP --------
 def init_db():
@@ -131,24 +133,17 @@ if word_data:
     st.markdown(f"**Meaning:** {meaning}")
     st.markdown(f"*Example:* _{example}_")
 
-# Buttons to acknowledge or skip word with a form to avoid both triggering
-with st.form("action_buttons", clear_on_submit=True):
-    col1, col2 = st.columns(2)
-    with col1:
-        know_word = st.form_submit_button("✅ I Know This Word (+5 XP)")
-    with col2:
-        new_word = st.form_submit_button("🔄 New Word (No XP)")
+know_word = st.button("✅ I Know This Word (+5 XP)")
+new_word = st.button("🔄 New Word (No XP)")
 
 if know_word:
     update_progress(5, streak)
     st.session_state.current_word = fetch_random_word_data()
     rerun()
-    st.stop()
 
-elif new_word:
+if new_word:
     st.session_state.current_word = fetch_random_word_data()
     rerun()
-    st.stop()
 
 # -------- STATS DISPLAY --------
 st.markdown("---")
