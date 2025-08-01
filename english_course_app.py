@@ -15,7 +15,6 @@ def init_db():
     c.execute("""
         CREATE TABLE IF NOT EXISTS progress (
             date TEXT PRIMARY KEY,
-            xp INTEGER,
             streak INTEGER
         )
     """)
@@ -27,7 +26,6 @@ conn = init_db()
 # -------- VOCAB FETCH FROM API --------
 def fetch_random_word_data():
     try:
-        # The API does not have a random endpoint, this is a workaround with a word list
         word_list = ["apple", "run", "book", "happy", "dog", "challenge", "improve", "travel", "advice", "weather",
                      "meticulous", "ubiquitous", "candid", "benevolent", "paradox"]
         word = random.choice(word_list)
@@ -50,6 +48,7 @@ def fetch_random_word_data():
 
 # -------- AUDIO UTILITY --------
 def tts_audio(text, lang="en"):
+    # Always create new temp file and encode anew to avoid stale cache issues
     tts = gTTS(text=text, lang=lang)
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as fp:
         temp_path = fp.name
@@ -61,7 +60,7 @@ def tts_audio(text, lang="en"):
     os.remove(temp_path)
     audio_b64 = base64.b64encode(audio_bytes).decode()
     audio_html = f"""
-    <audio controls>
+    <audio controls autoplay>
         <source src="data:audio/mp3;base64,{audio_b64}" type="audio/mp3">
         Your browser does not support the audio element.
     </audio>
@@ -72,16 +71,14 @@ def tts_audio(text, lang="en"):
 def get_progress():
     c = conn.cursor()
     today = datetime.date.today().isoformat()
-    c.execute("SELECT xp, streak FROM progress WHERE date=?", (today,))
+    c.execute("SELECT streak FROM progress WHERE date=?", (today,))
     row = c.fetchone()
-    return row if row else (0, 0)
+    return row[0] if row else 0
 
-def update_progress(xp_delta, new_streak):
+def update_progress(new_streak):
     today = datetime.date.today().isoformat()
-    xp, _ = get_progress()
-    xp += xp_delta
     c = conn.cursor()
-    c.execute("INSERT OR REPLACE INTO progress (date, xp, streak) VALUES (?, ?, ?)", (today, xp, new_streak))
+    c.execute("INSERT OR REPLACE INTO progress (date, streak) VALUES (?, ?)", (today, new_streak))
     conn.commit()
 
 def get_streak():
@@ -96,24 +93,14 @@ def get_streak():
             return last_streak + 1
     return 1
 
-def get_level(xp):
-    if xp < 20:
-        return "Beginner"
-    elif xp < 50:
-        return "Intermediate"
-    else:
-        return "Advanced"
-
 # -------- APP START --------
 st.set_page_config(page_title="English Word Practice", layout="centered")
 st.title("🌟 English Word Practice")
 
 # Load progress
-xp, _ = get_progress()
 streak = get_streak()
-level = get_level(xp)
 
-st.info(f"Level: **{level}** | XP: **{xp}** | 🔥 Streak: **{streak} days**")
+st.info(f"🔥 Streak: **{streak} days**")
 
 # Initialize current word in session state if not present
 if "current_word" not in st.session_state:
@@ -133,6 +120,7 @@ if word_data:
 
     st.subheader("🧠 Vocabulary")
     st.markdown(f"### 🔤 Word: `{word}`")
+    # Make sure TTS updates every time by using a key to force Streamlit to reload audio
     st.markdown(tts_audio(word), unsafe_allow_html=True)
     st.markdown(f"**Meaning:** {meaning}")
     st.markdown(f"*Example:* _{example}_")
@@ -141,24 +129,30 @@ if word_data:
 col1, col2 = st.columns(2)
 
 with col1:
-    if st.button("✅ I Know This Word (+5 XP)"):
-        update_progress(5, streak)
+    if st.button("✅ I Know This Word (+1 Streak)"):
+        new_streak = streak
+        if streak == 0:
+            new_streak = 1
+        else:
+            new_streak = streak  # keep current streak, or you can add logic to increase if you want
+        update_progress(new_streak)
+        # fetch a new word
         new_word = fetch_random_word_data()
         if new_word:
             st.session_state.current_word = new_word
         else:
             st.error("Could not fetch a new word.")
-        st.rerun()
+        st.experimental_rerun()
 
 with col2:
-    if st.button("🔄 New Word (No XP)"):
+    if st.button("🔄 New Word (No Streak Change)"):
         new_word = fetch_random_word_data()
         if new_word:
             st.session_state.current_word = new_word
         else:
             st.error("Could not fetch a new word.")
-        st.rerun()
+        st.experimental_rerun()
 
 # -------- STATS DISPLAY --------
 st.markdown("---")
-st.write(f"🎯 **XP:** {xp} | 🔥 **Streak:** {streak} days | 🧭 **Level:** {level}")
+st.write(f"🔥 **Streak:** {streak} days")
