@@ -129,11 +129,11 @@ if word_data:
 if st.button("✅ I Know This Word (+5 XP)"):
     update_progress(5, streak)
     st.session_state.current_word = fetch_random_word_data()
-    st.experimental_rerun()
+    st.rerun()
 
 if st.button("🔄 New Word (No XP)"):
     st.session_state.current_word = fetch_random_word_data()
-    st.experimental_rerun()
+    st.rerun()
 
 # -------- STATS DISPLAY --------
 st.markdown("---")
