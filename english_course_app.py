@@ -56,6 +56,7 @@ lessons = {
     }
 }
 
+# Optional simpler hints for easier understanding (can be customized)
 hints = {
     "apple": "A common fruit, often red or green.",
     "run": "To move fast on foot.",
@@ -125,76 +126,72 @@ def get_level(xp):
 st.set_page_config(page_title="Daily Language Lesson", layout="centered")
 st.title("🌟 Daily Language Lesson")
 
-# Initialize session state
-if "vocab_submitted" not in st.session_state:
-    st.session_state.vocab_submitted = False
-if "grammar_submitted" not in st.session_state:
-    st.session_state.grammar_submitted = False
-if "xp" not in st.session_state:
-    xp, _ = get_progress()
-    st.session_state.xp = xp
-if "streak" not in st.session_state:
-    st.session_state.streak = get_streak()
+# Load progress
+xp, streak = get_progress()
+streak = get_streak()
+level = get_level(xp)
 
-level = get_level(st.session_state.xp)
+st.info(f"Your current level is **{level.capitalize()}** with **{xp} XP** and a **{streak}-day streak** 🔥")
+
+# Select today's lesson based on level
 lesson = lessons[level]
 
-st.info(f"Your current level is **{level.capitalize()}** with **{st.session_state.xp} XP** and a **{st.session_state.streak}-day streak** 🔥")
-
-# --- VOCABULARY QUIZ ---
-st.subheader("📖 Vocabulary")
-
-# Ensure stored vocab_word is valid for the current level
-if ("vocab_word" not in st.session_state 
-    or st.session_state.vocab_submitted 
-    or st.session_state.vocab_word not in lesson["vocab"]):
+# Maintain the current vocab word in session state to keep it stable during reruns
+if "vocab_word" not in st.session_state or st.session_state.get("level") != level:
     st.session_state.vocab_word = random.choice(list(lesson["vocab"].keys()))
-    st.session_state.vocab_submitted = False
+    st.session_state.level = level
 
 word = st.session_state.vocab_word
 correct_meaning = lesson["vocab"][word]
+
+# Vocabulary quiz
+st.subheader("📖 Vocabulary")
+
+# Show the word
+st.markdown(f"**Your word:** {word}")
+
+# Show a hint (simplified meaning)
 hint = hints.get(word, correct_meaning)
-
-st.markdown(f"**Word:** {word}")
 st.markdown(f"*Hint:* {hint}")
-st.markdown(generate_audio(word), unsafe_allow_html=True)
 
-vocab_options = list(lesson["vocab"].values())
-random.shuffle(vocab_options)
-vocab_choice = st.radio(f"What does **{word}** mean?", vocab_options, key="vocab_choice")
+# Play audio of the word - key by the word to force reload
+st.markdown(generate_audio(word), unsafe_allow_html=True, key=f"audio_{word}")
 
-if st.button("Submit Vocabulary") and not st.session_state.vocab_submitted:
-    if vocab_choice == correct_meaning:
-        st.success("Correct! +5 XP 🎉")
-        st.session_state.xp += 5
-        update_progress(5, st.session_state.streak)
+options = list(lesson["vocab"].values())
+random.shuffle(options)
+choice = st.selectbox(f"Choose the correct meaning of **{word}**:", options, key="vocab_choice")
+
+if st.button("Submit Vocabulary"):
+    if choice == correct_meaning:
+        st.success("Correct! +5 XP")
+        update_progress(5, streak)
+        # Change to a new word after correct answer
+        st.session_state.vocab_word = random.choice(list(lesson["vocab"].keys()))
+        st.experimental_rerun()
     else:
         st.error(f"Wrong. Correct answer: {correct_meaning}")
-    st.session_state.vocab_submitted = True
 
-# --- GRAMMAR QUIZ ---
+# Grammar quiz
 st.markdown("---")
 st.subheader("📝 Grammar")
-
-if "grammar_question" not in st.session_state or st.session_state.grammar_submitted:
+if "grammar_question" not in st.session_state or st.session_state.get("level") != level:
     st.session_state.grammar_question = random.choice(lesson["grammar"])
-    st.session_state.grammar_submitted = False
+    st.session_state.level = level
 
 gq = st.session_state.grammar_question
 st.write(gq["sentence"])
+g_choice = st.selectbox("Choose the correct word:", gq["options"], key="grammar_choice")
 
-g_choice = st.radio("Choose the correct word:", gq["options"], key="grammar_choice")
-
-if st.button("Submit Grammar") and not st.session_state.grammar_submitted:
+if st.button("Submit Grammar"):
     if g_choice == gq["answer"]:
-        st.success("Correct! +5 XP 🎉")
-        st.session_state.xp += 5
-        update_progress(5, st.session_state.streak)
+        st.success("Correct! +5 XP")
+        update_progress(5, streak)
+        # Change grammar question after correct answer
+        st.session_state.grammar_question = random.choice(lesson["grammar"])
+        st.experimental_rerun()
     else:
         st.error(f"Wrong. Correct answer: {gq['answer']}")
-    st.session_state.grammar_submitted = True
 
-# --- PROGRESS SUMMARY ---
+# Show XP and streak at bottom
 st.markdown("---")
-st.write(f"**XP:** {st.session_state.xp} | **Streak:** {st.session_state.streak} days | **Level:** {level.capitalize()}")
-
+st.write(f"**XP:** {xp} | **Streak:** {streak} days | **Level:** {level.capitalize()}")
