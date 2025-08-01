@@ -77,9 +77,17 @@ def generate_audio(word, lang="en"):
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as fp:
         tts.save(fp.name)
         audio_bytes = open(fp.name, "rb").read()
-    audio = base64.b64encode(audio_bytes).decode()
     os.unlink(fp.name)
-    return f"<audio controls><source src='data:audio/mp3;base64,{audio}' type='audio/mp3'></audio>"
+
+    audio_b64 = base64.b64encode(audio_bytes).decode()
+    # Add a unique id (nonce) using the word + current timestamp to bust cache
+    nonce = f"{word}_{int(datetime.datetime.now().timestamp())}"
+    audio_html = f"""
+    <audio controls autoplay key="{nonce}">
+        <source src="data:audio/mp3;base64,{audio_b64}" type="audio/mp3">
+    </audio>
+    """
+    return audio_html
 
 def get_progress():
     c = conn.cursor()
