@@ -8,19 +8,18 @@ from gtts import gTTS
 def init_db():
     conn = sqlite3.connect("progress.db")
     c = conn.cursor()
-    c.execute("""CREATE TABLE IF NOT EXISTS users (
-        username TEXT PRIMARY KEY,
-        password TEXT,
-        xp INTEGER DEFAULT 0,
-        last_challenge DATE,
-        streak INTEGER DEFAULT 0
-    )""")
-    c.execute("""CREATE TABLE IF NOT EXISTS wrong_answers (
-        username TEXT,
-        question TEXT,
-        your_answer TEXT,
-        correct_answer TEXT
-    )""")
+    # For simplicity, drop the old table if exists (only for development)
+    c.execute("DROP TABLE IF EXISTS users")
+    
+    c.execute("""
+        CREATE TABLE users (
+            username TEXT PRIMARY KEY,
+            password TEXT,
+            xp INTEGER DEFAULT 0,
+            last_challenge DATE,
+            streak INTEGER DEFAULT 0
+        )
+    """)
     conn.commit()
     return conn
 
@@ -34,7 +33,7 @@ def hash_pass(pw): return hashlib.sha256(pw.encode()).hexdigest()
 def register_user(username, password):
     c = conn.cursor()
     c.execute(
-        "INSERT OR IGNORE INTO users (username, password, xp, last_challenge, streak) VALUES (?, ?, 0, NULL, 0)", 
+        "INSERT OR IGNORE INTO users (username, password, xp, last_challenge, streak) VALUES (?, ?, 0, NULL, 0)",
         (username, hash_pass(password))
     )
     conn.commit()
