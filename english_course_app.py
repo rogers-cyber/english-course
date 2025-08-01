@@ -3,31 +3,25 @@ import random, tempfile, base64, sqlite3, os, datetime
 from gtts import gTTS
 
 # --------------------
-# DB SETUP
+# DATABASE SETUP
 # --------------------
 def init_db():
     conn = sqlite3.connect("progress.db", check_same_thread=False)
     c = conn.cursor()
     c.execute("""
-        CREATE TABLE IF NOT EXISTS user_progress (
-            id INTEGER PRIMARY KEY,
+        CREATE TABLE IF NOT EXISTS progress (
+            date TEXT PRIMARY KEY,
             xp INTEGER,
-            streak INTEGER,
-            last_date TEXT,
-            level TEXT
+            streak INTEGER
         )
     """)
-    # Ensure one user row
-    c.execute("SELECT COUNT(*) FROM user_progress")
-    if c.fetchone()[0] == 0:
-        c.execute("INSERT INTO user_progress (xp, streak, last_date, level) VALUES (0,0,'', 'beginner')")
     conn.commit()
     return conn
 
 conn = init_db()
 
 # --------------------
-# LESSON DATA
+# VOCAB & GRAMMAR DATA (example sets for 3 levels)
 # --------------------
 lessons = {
     "beginner": {
@@ -62,25 +56,22 @@ lessons = {
     }
 }
 
+# Optional simpler hints for easier understanding (can be customized)
+hints = {
+    "apple": "A common fruit, often red or green.",
+    "run": "To move fast on foot.",
+    "book": "Pages bound together to read.",
+    "challenge": "Something difficult to do.",
+    "improve": "To get better at something.",
+    "travel": "To go to different places.",
+    "meticulous": "Very careful and precise.",
+    "ubiquitous": "Found everywhere or very common.",
+    "candid": "Honest and straightforward.",
+}
+
 # --------------------
 # UTILS
 # --------------------
-def get_user_progress():
-    c = conn.cursor()
-    c.execute("SELECT xp, streak, last_date, level FROM user_progress WHERE id=1")
-    return c.fetchone()
-
-def update_user_progress(xp=None, streak=None, last_date=None, level=None):
-    c = conn.cursor()
-    current = get_user_progress()
-    new_xp = xp if xp is not None else current[0]
-    new_streak = streak if streak is not None else current[1]
-    new_date = last_date if last_date is not None else current[2]
-    new_level = level if level is not None else current[3]
-    c.execute("""UPDATE user_progress SET xp=?, streak=?, last_date=?, level=? WHERE id=1""",
-              (new_xp, new_streak, new_date, new_level))
-    conn.commit()
-
 def generate_audio(word, lang="en"):
     tts = gTTS(text=word, lang=lang)
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as fp:
@@ -90,7 +81,38 @@ def generate_audio(word, lang="en"):
     os.unlink(fp.name)
     return f"<audio controls><source src='data:audio/mp3;base64,{audio}' type='audio/mp3'></audio>"
 
-def get_level_by_xp(xp):
+def get_progress():
+    c = conn.cursor()
+    today = datetime.date.today().isoformat()
+    c.execute("SELECT xp, streak FROM progress WHERE date=?", (today,))
+    row = c.fetchone()
+    if row:
+        return row
+    else:
+        return 0, 0
+
+def update_progress(xp_delta, new_streak):
+    c = conn.cursor()
+    today = datetime.date.today().isoformat()
+    xp, streak = get_progress()
+    xp += xp_delta
+    streak = new_streak
+    c.execute("INSERT OR REPLACE INTO progress (date, xp, streak) VALUES (?, ?, ?)", (today, xp, streak))
+    conn.commit()
+
+def get_streak():
+    c = conn.cursor()
+    today = datetime.date.today()
+    yesterday = (today - datetime.timedelta(days=1)).isoformat()
+    c.execute("SELECT date, streak FROM progress ORDER BY date DESC LIMIT 1")
+    row = c.fetchone()
+    if row:
+        last_date, last_streak = row
+        if last_date == yesterday:
+            return last_streak + 1
+    return 1
+
+def get_level(xp):
     if xp < 20:
         return "beginner"
     elif xp < 50:
@@ -99,103 +121,62 @@ def get_level_by_xp(xp):
         return "advanced"
 
 # --------------------
-# APP LOGIC
+# APP START
 # --------------------
 st.set_page_config(page_title="Daily Language Lesson", layout="centered")
-st.title("🌟 Daily Language Lesson (Duolingo Style)")
+st.title("🌟 Daily Language Lesson")
 
 # Load progress
-xp, streak, last_date, level = get_user_progress()
+xp, streak = get_progress()
+streak = get_streak()
+level = get_level(xp)
 
-# Update streak if last_date is yesterday
-today = datetime.date.today().isoformat()
-yesterday = (datetime.date.today() - datetime.timedelta(days=1)).isoformat()
-if last_date != today:
-    if last_date == yesterday:
-        streak += 1
-    else:
-        streak = 1
-    update_user_progress(streak=streak, last_date=today)
+st.info(f"Your current level is **{level.capitalize()}** with **{xp} XP** and a **{streak}-day streak** 🔥")
 
-# Update level if XP changed
-new_level = get_level_by_xp(xp)
-if new_level != level:
-    level = new_level
-    update_user_progress(level=level)
+# Select today's lesson based on level
+lesson = lessons[level]
 
-st.write(f"**Level:** {level.capitalize()} | **XP:** {xp} | **Streak:** {streak} days 🔥")
+# Vocabulary quiz
+st.subheader("📖 Vocabulary")
 
-# Initialize session state for question type and current item index
-if "question_type" not in st.session_state:
-    st.session_state.question_type = "vocab"  # vocab or grammar
-if "q_index" not in st.session_state:
-    st.session_state.q_index = 0
-if "answered" not in st.session_state:
-    st.session_state.answered = False
-if "current_word" not in st.session_state:
-    st.session_state.current_word = None
-if "current_correct" not in st.session_state:
-    st.session_state.current_correct = None
-if "current_options" not in st.session_state:
-    st.session_state.current_options = []
+word = random.choice(list(lesson["vocab"].keys()))
+correct_meaning = lesson["vocab"][word]
 
-lesson_data = lessons[level]
+# Show the word
+st.markdown(f"**Your word:** {word}")
 
-def load_new_vocab_question():
-    word = random.choice(list(lesson_data["vocab"].keys()))
-    correct = lesson_data["vocab"][word]
-    options = list(lesson_data["vocab"].values())
-    random.shuffle(options)
-    st.session_state.current_word = word
-    st.session_state.current_correct = correct
-    st.session_state.current_options = options
-    st.session_state.question_type = "vocab"
-    st.session_state.answered = False
+# Show a hint (simplified meaning)
+hint = hints.get(word, correct_meaning)
+st.markdown(f"*Hint:* {hint}")
 
-def load_new_grammar_question():
-    q = random.choice(lesson_data["grammar"])
-    st.session_state.current_word = q["sentence"]
-    st.session_state.current_correct = q["answer"]
-    st.session_state.current_options = q["options"]
-    st.session_state.question_type = "grammar"
-    st.session_state.answered = False
+# Play audio of the word
+st.markdown(generate_audio(word), unsafe_allow_html=True)
 
-# Load initial question if none
-if st.session_state.current_word is None:
-    load_new_vocab_question()
+options = list(lesson["vocab"].values())
+random.shuffle(options)
+choice = st.selectbox(f"Choose the correct meaning of **{word}**:", options)
 
-st.subheader("Your Lesson")
-
-if st.session_state.question_type == "vocab":
-    st.markdown(generate_audio(st.session_state.current_word), unsafe_allow_html=True)
-    st.write(f"What does **{st.session_state.current_word}** mean?")
-else:
-    st.write(st.session_state.current_word)
-
-choice = st.selectbox("Choose your answer:", st.session_state.current_options, key="answer_select")
-
-if st.session_state.answered:
-    if choice == st.session_state.current_correct:
+if st.button("Submit Vocabulary"):
+    if choice == correct_meaning:
         st.success("Correct! +5 XP")
+        update_progress(5, streak)
     else:
-        st.error(f"Wrong. Correct answer: {st.session_state.current_correct}")
+        st.error(f"Wrong. Correct answer: {correct_meaning}")
 
-if st.button("Submit") and not st.session_state.answered:
-    if choice == st.session_state.current_correct:
-        xp += 5
-        update_user_progress(xp=xp)
-    st.session_state.answered = True
-
-if st.session_state.answered:
-    if st.button("Next Question"):
-        if st.session_state.question_type == "vocab":
-            load_new_grammar_question()
-        else:
-            load_new_vocab_question()
-        st.rerun()
-        # Stop further code execution after rerun to avoid error:
-        st.stop()
-
+# Grammar quiz
 st.markdown("---")
-st.write("Keep practicing every day to build your streak and level up!")
+st.subheader("📝 Grammar")
+gq = random.choice(lesson["grammar"])
+st.write(gq["sentence"])
+g_choice = st.selectbox("Choose the correct word:", gq["options"])
 
+if st.button("Submit Grammar"):
+    if g_choice == gq["answer"]:
+        st.success("Correct! +5 XP")
+        update_progress(5, streak)
+    else:
+        st.error(f"Wrong. Correct answer: {gq['answer']}")
+
+# Show XP and streak at bottom
+st.markdown("---")
+st.write(f"**XP:** {xp} | **Streak:** {streak} days | **Level:** {level.capitalize()}")
