@@ -3,11 +3,9 @@ import requests
 import random
 import sqlite3
 import tempfile
-import base64
 import os
 import datetime
 from gtts import gTTS
-import uuid
 
 # -------- DATABASE SETUP --------
 def init_db():
@@ -51,25 +49,14 @@ def fetch_random_word_data():
 def tts_audio(text, lang="en"):
     tts = gTTS(text=text, lang=lang)
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as fp:
+        tts.save(fp.name)
         temp_path = fp.name
-        tts.save(temp_path)
 
-    with open(temp_path, "rb") as audio_file:
-        audio_bytes = audio_file.read()
+    with open(temp_path, "rb") as f:
+        audio_bytes = f.read()
 
     os.remove(temp_path)
-    audio_b64 = base64.b64encode(audio_bytes).decode()
-
-    # Generate a unique id to append as a query param to force reload
-    unique_id = uuid.uuid4()
-
-    audio_html = f"""
-    <audio controls autoplay>
-        <source src="data:audio/mp3;base64,{audio_b64}?id={unique_id}" type="audio/mp3">
-        Your browser does not support the audio element.
-    </audio>
-    """
-    return audio_html
+    return audio_bytes
 
 # -------- PROGRESS MANAGEMENT --------
 def get_progress():
@@ -103,7 +90,6 @@ st.title("🌟 English Word Practice")
 
 # Load progress
 streak = get_streak()
-
 st.info(f"🔥 Streak: **{streak} days**")
 
 # Initialize current word in session state if not present
@@ -124,8 +110,11 @@ if word_data:
 
     st.subheader("🧠 Vocabulary")
     st.markdown(f"### 🔤 Word: `{word}`")
-    # Make sure TTS updates every time by using a key to force Streamlit to reload audio
-    st.markdown(tts_audio(word), unsafe_allow_html=True)
+
+    # Use st.audio for reliable playback
+    audio_bytes = tts_audio(word)
+    st.audio(audio_bytes, format="audio/mp3")
+
     st.markdown(f"**Meaning:** {meaning}")
     st.markdown(f"*Example:* _{example}_")
 
@@ -138,9 +127,8 @@ with col1:
         if streak == 0:
             new_streak = 1
         else:
-            new_streak = streak  # keep current streak, or you can add logic to increase if you want
+            new_streak = streak  # you could increment if needed
         update_progress(new_streak)
-        # fetch a new word
         new_word = fetch_random_word_data()
         if new_word:
             st.session_state.current_word = new_word
