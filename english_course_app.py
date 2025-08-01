@@ -8,16 +8,24 @@ from gtts import gTTS
 def init_db():
     conn = sqlite3.connect("progress.db")
     c = conn.cursor()
-    # For simplicity, drop the old table if exists (only for development)
-    c.execute("DROP TABLE IF EXISTS users")
-    
+    # Commented out DROP TABLE to preserve data
+    # c.execute("DROP TABLE IF EXISTS users")
+
     c.execute("""
-        CREATE TABLE users (
+        CREATE TABLE IF NOT EXISTS users (
             username TEXT PRIMARY KEY,
             password TEXT,
             xp INTEGER DEFAULT 0,
             last_challenge DATE,
             streak INTEGER DEFAULT 0
+        )
+    """)
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS wrong_answers (
+            username TEXT,
+            question TEXT,
+            your_answer TEXT,
+            correct_answer TEXT
         )
     """)
     conn.commit()
@@ -28,9 +36,12 @@ conn = init_db()
 # --------------------
 # HELPER FUNCTIONS
 # --------------------
-def hash_pass(pw): return hashlib.sha256(pw.encode()).hexdigest()
+def hash_pass(pw): 
+    return hashlib.sha256(pw.strip().encode()).hexdigest()
 
 def register_user(username, password):
+    username = username.strip()
+    password = password.strip()
     c = conn.cursor()
     c.execute(
         "INSERT OR IGNORE INTO users (username, password, xp, last_challenge, streak) VALUES (?, ?, 0, NULL, 0)",
@@ -39,9 +50,13 @@ def register_user(username, password):
     conn.commit()
 
 def login_user(username, password):
+    username = username.strip()
+    password = password.strip()
     c = conn.cursor()
-    c.execute("SELECT * FROM users WHERE username=? AND password=?", 
-              (username, hash_pass(password)))
+    hashed_pw = hash_pass(password)
+    # Debug print - remove in production
+    print(f"Login attempt for {username} with hash {hashed_pw}")
+    c.execute("SELECT * FROM users WHERE username=? AND password=?", (username, hashed_pw))
     return c.fetchone()
 
 def update_xp(username, delta):
@@ -54,21 +69,31 @@ def update_streak(username, today):
     c.execute("SELECT last_challenge, streak FROM users WHERE username=?", (username,))
     last, streak = c.fetchone()
     if last != today:
-        streak = streak + 1 if last == (datetime.date.today() - datetime.timedelta(days=1)).isoformat() else 1
+        yesterday = (datetime.date.today() - datetime.timedelta(days=1)).isoformat()
+        if last == yesterday:
+            streak += 1
+        else:
+            streak = 1
         c.execute("UPDATE users SET last_challenge=?, streak=? WHERE username=?", (today, streak, username))
         conn.commit()
         return streak
     return streak
 
 def log_wrong_answer(username, question, your_ans, correct_ans):
-    conn.execute("INSERT INTO wrong_answers VALUES (?,?,?,?)", (username, question, your_ans, correct_ans))
+    c = conn.cursor()
+    c.execute(
+        "INSERT INTO wrong_answers (username, question, your_answer, correct_answer) VALUES (?, ?, ?, ?)",
+        (username, question, your_ans, correct_ans)
+    )
     conn.commit()
 
 def get_leaderboard():
-    return conn.execute("SELECT username, xp FROM users ORDER BY xp DESC LIMIT 5").fetchall()
+    c = conn.cursor()
+    return c.execute("SELECT username, xp FROM users ORDER BY xp DESC LIMIT 5").fetchall()
 
 def get_wrong_answers(username):
-    return conn.execute("SELECT question, your_answer, correct_answer FROM wrong_answers WHERE username=?", (username,)).fetchall()
+    c = conn.cursor()
+    return c.execute("SELECT question, your_answer, correct_answer FROM wrong_answers WHERE username=?", (username,)).fetchall()
 
 # --------------------
 # VOCAB & GRAMMAR
@@ -115,8 +140,8 @@ if "user" not in st.session_state:
 
 if menu == "Register":
     st.subheader("📝 Create Account")
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
+    username = st.text_input("Username", key="reg_username")
+    password = st.text_input("Password", type="password", key="reg_password")
     if st.button("Register"):
         if username and password:
             register_user(username, password)
@@ -131,7 +156,7 @@ elif menu == "Login":
     if st.button("Login"):
         user = login_user(username, password)
         if user:
-            st.session_state.user = username
+            st.session_state.user = username.strip()
             st.experimental_rerun()
         else:
             st.error("Invalid credentials")
@@ -158,8 +183,10 @@ elif menu == "Review Mistakes":
 # --------------------
 if st.session_state.user and menu in ["Login", ""]:
     today = datetime.date.today().isoformat()
-    xp, last, _ = conn.execute("SELECT xp, last_challenge, streak FROM users WHERE username=?", (st.session_state.user,)).fetchone()
-    
+    c = conn.cursor()
+    c.execute("SELECT xp, last_challenge, streak FROM users WHERE username=?", (st.session_state.user,))
+    xp, last, streak = c.fetchone()
+
     st.success(f"Welcome, **{st.session_state.user}**! XP: {xp} | Level: {'Beginner' if xp<50 else 'Intermediate' if xp<200 else 'Advanced'}")
 
     streak = update_streak(st.session_state.user, today)
