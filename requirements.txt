@@ -3,5 +3,5 @@ gtts
 requests
 numpy
 streamlit-webrtc
-speechrecognition
+SpeechRecognition
 pydub
