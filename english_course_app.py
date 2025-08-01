@@ -7,6 +7,7 @@ import base64
 import os
 import datetime
 from gtts import gTTS
+import streamlit.runtime.legacy as legacy  # For rerun in Streamlit >=1.29
 
 # -------- DATABASE SETUP --------
 def init_db():
@@ -32,13 +33,13 @@ def fetch_random_word_data():
             return None
         data = response.json()[0]
         word = data.get("word", "")
-        meaning = data["meanings"][0]["definitions"][0].get("definition", "No definition available.")
-        example = data["meanings"][0]["definitions"][0].get("example", "No example available.")
+        meaning = data["meanings"][0]["definitions"][0].get("definition", "No definition")
+        example = data["meanings"][0]["definitions"][0].get("example", "No example provided.")
         return {"word": word, "meaning": meaning, "example": example}
     except Exception:
         return None
 
-# -------- AUDIO GENERATION --------
+# -------- AUDIO UTILITY --------
 def tts_audio(text, lang="en"):
     tts = gTTS(text=text, lang=lang)
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as fp:
@@ -57,7 +58,7 @@ def tts_audio(text, lang="en"):
     """
     return audio_html
 
-# -------- PROGRESS FUNCTIONS --------
+# -------- PROGRESS MANAGEMENT --------
 def get_progress():
     c = conn.cursor()
     today = datetime.date.today().isoformat()
@@ -93,7 +94,7 @@ def get_level(xp):
     else:
         return "Advanced"
 
-# -------- STREAMLIT APP --------
+# -------- APP START --------
 st.set_page_config(page_title="English Word Practice", layout="centered")
 st.title("🌟 English Word Practice")
 
@@ -102,50 +103,49 @@ xp, _ = get_progress()
 streak = get_streak()
 level = get_level(xp)
 
-st.info(f"🎯 Level: **{level}** | XP: **{xp}** | 🔥 Streak: **{streak} days**")
+st.info(f"Level: **{level}** | XP: **{xp}** | 🔥 Streak: **{streak} days**")
 
-# Load a word if none exists yet
+# Get or load word
 if "current_word" not in st.session_state:
     word_data = fetch_random_word_data()
     if word_data:
         st.session_state.current_word = word_data
     else:
-        st.error("⚠️ Could not fetch a word. Please check your internet connection.")
+        st.error("Could not fetch word. Try again later.")
 
-# Display current word
 word_data = st.session_state.get("current_word")
 
+# -------- WORD SECTION --------
 if word_data:
     word = word_data["word"]
     meaning = word_data["meaning"]
     example = word_data["example"]
 
-    st.subheader("🧠 Vocabulary Practice")
-    st.markdown(f"### 🔤 Word: `{word}`")
+    st.subheader("🧠 Vocabulary")
+    st.markdown(f"### 🔤 Your word: `{word}`")
     st.markdown(tts_audio(word), unsafe_allow_html=True)
     st.markdown(f"**Meaning:** {meaning}")
     st.markdown(f"*Example:* _{example}_")
 
-    # Form for actions to prevent conflicts
-    with st.form("action_buttons", clear_on_submit=True):
-        col1, col2 = st.columns(2)
-        with col1:
-            know_word = st.form_submit_button("✅ I Know This Word (+5 XP)")
-        with col2:
-            new_word = st.form_submit_button("🔄 New Word (No XP)")
-    
-    if know_word:
-        update_progress(5, streak)
-        st.session_state.current_word = fetch_random_word_data()
-        st.experimental_rerun()
-        st.stop()
-    
-    elif new_word:
-        st.session_state.current_word = fetch_random_word_data()
-        st.experimental_rerun()
-        st.stop()
+# Use a form with two buttons side by side to avoid multiple button issue
+with st.form("action_buttons", clear_on_submit=True):
+    col1, col2 = st.columns(2)
+    with col1:
+        know_word = st.form_submit_button("✅ I Know This Word (+5 XP)")
+    with col2:
+        new_word = st.form_submit_button("🔄 New Word (No XP)")
 
+if know_word:
+    update_progress(5, streak)
+    st.session_state.current_word = fetch_random_word_data()
+    legacy.rerun()
+    st.stop()
 
-# Show progress again at bottom
+elif new_word:
+    st.session_state.current_word = fetch_random_word_data()
+    legacy.rerun()
+    st.stop()
+
+# -------- STATS DISPLAY --------
 st.markdown("---")
-st.write(f"📈 **XP:** {xp} | 🔥 **Streak:** {streak} days | 🎓 **Level:** {level}")
+st.write(f"🎯 **XP:** {xp} | 🔥 **Streak:** {streak} days | 🧭 **Level:** {level}")
