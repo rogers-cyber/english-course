@@ -8,13 +8,6 @@ import os
 import datetime
 from gtts import gTTS
 
-# Import RerunException and get_script_run_ctx for rerun support
-from streamlit.runtime.scriptrunner import RerunException, get_script_run_ctx
-
-# --------- Rerun helper function ---------
-def rerun():
-    raise RerunException(get_script_run_ctx())
-
 # -------- DATABASE SETUP --------
 def init_db():
     conn = sqlite3.connect("progress.db", check_same_thread=False)
@@ -34,15 +27,25 @@ conn = init_db()
 # -------- VOCAB FETCH FROM API --------
 def fetch_random_word_data():
     try:
-        response = requests.get("https://api.dictionaryapi.dev/api/v2/entries/en/random")
+        # The API does not have a random endpoint, this is a workaround with a word list
+        word_list = ["apple", "run", "book", "happy", "dog", "challenge", "improve", "travel", "advice", "weather",
+                     "meticulous", "ubiquitous", "candid", "benevolent", "paradox"]
+        word = random.choice(word_list)
+        response = requests.get(f"https://api.dictionaryapi.dev/api/v2/entries/en/{word}")
         if response.status_code != 200:
             return None
         data = response.json()[0]
-        word = data.get("word", "")
-        meaning = data["meanings"][0]["definitions"][0].get("definition", "No definition")
-        example = data["meanings"][0]["definitions"][0].get("example", "No example provided.")
+        meanings = data.get("meanings", [])
+        if not meanings:
+            return None
+        definitions = meanings[0].get("definitions", [])
+        if not definitions:
+            return None
+        meaning = definitions[0].get("definition", "No definition available.")
+        example = definitions[0].get("example", "No example provided.")
         return {"word": word, "meaning": meaning, "example": example}
-    except Exception:
+    except Exception as e:
+        st.error(f"Error fetching word: {e}")
         return None
 
 # -------- AUDIO UTILITY --------
@@ -58,8 +61,9 @@ def tts_audio(text, lang="en"):
     os.remove(temp_path)
     audio_b64 = base64.b64encode(audio_bytes).decode()
     audio_html = f"""
-    <audio controls autoplay>
+    <audio controls>
         <source src="data:audio/mp3;base64,{audio_b64}" type="audio/mp3">
+        Your browser does not support the audio element.
     </audio>
     """
     return audio_html
@@ -111,7 +115,7 @@ level = get_level(xp)
 
 st.info(f"Level: **{level}** | XP: **{xp}** | 🔥 Streak: **{streak} days**")
 
-# Get or load word
+# Initialize current word in session state if not present
 if "current_word" not in st.session_state:
     word_data = fetch_random_word_data()
     if word_data:
@@ -121,29 +125,39 @@ if "current_word" not in st.session_state:
 
 word_data = st.session_state.get("current_word")
 
-# -------- WORD SECTION --------
+# -------- WORD DISPLAY --------
 if word_data:
     word = word_data["word"]
     meaning = word_data["meaning"]
     example = word_data["example"]
 
     st.subheader("🧠 Vocabulary")
-    st.markdown(f"### 🔤 Your word: `{word}`")
+    st.markdown(f"### 🔤 Word: `{word}`")
     st.markdown(tts_audio(word), unsafe_allow_html=True)
     st.markdown(f"**Meaning:** {meaning}")
     st.markdown(f"*Example:* _{example}_")
 
-know_word = st.button("✅ I Know This Word (+5 XP)")
-new_word = st.button("🔄 New Word (No XP)")
+# Buttons to update progress or get new word
+col1, col2 = st.columns(2)
 
-if know_word:
-    update_progress(5, streak)
-    st.session_state.current_word = fetch_random_word_data()
-    rerun()
+with col1:
+    if st.button("✅ I Know This Word (+5 XP)"):
+        update_progress(5, streak)
+        new_word = fetch_random_word_data()
+        if new_word:
+            st.session_state.current_word = new_word
+        else:
+            st.error("Could not fetch a new word.")
+        st.experimental_rerun()
 
-if new_word:
-    st.session_state.current_word = fetch_random_word_data()
-    rerun()
+with col2:
+    if st.button("🔄 New Word (No XP)"):
+        new_word = fetch_random_word_data()
+        if new_word:
+            st.session_state.current_word = new_word
+        else:
+            st.error("Could not fetch a new word.")
+        st.experimental_rerun()
 
 # -------- STATS DISPLAY --------
 st.markdown("---")
