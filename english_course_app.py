@@ -7,7 +7,11 @@ import base64
 import os
 import datetime
 from gtts import gTTS
-import streamlit.runtime.legacy as legacy  # For rerun in Streamlit >=1.29
+
+# Rerun function for Streamlit 1.29+
+from streamlit.runtime.scriptrunner.script_runner import RerunException, ScriptRunner
+def rerun():
+    raise RerunException(ScriptRunner.get_script_run_ctx())
 
 # -------- DATABASE SETUP --------
 def init_db():
@@ -127,7 +131,7 @@ if word_data:
     st.markdown(f"**Meaning:** {meaning}")
     st.markdown(f"*Example:* _{example}_")
 
-# Use a form with two buttons side by side to avoid multiple button issue
+# Buttons to acknowledge or skip word with a form to avoid both triggering
 with st.form("action_buttons", clear_on_submit=True):
     col1, col2 = st.columns(2)
     with col1:
@@ -138,12 +142,12 @@ with st.form("action_buttons", clear_on_submit=True):
 if know_word:
     update_progress(5, streak)
     st.session_state.current_word = fetch_random_word_data()
-    legacy.rerun()
+    rerun()
     st.stop()
 
 elif new_word:
     st.session_state.current_word = fetch_random_word_data()
-    legacy.rerun()
+    rerun()
     st.stop()
 
 # -------- STATS DISPLAY --------
