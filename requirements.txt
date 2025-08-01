@@ -1,4 +1,10 @@
 streamlit
-pandas
+gtts
+whisper
+torch
+speechrecognition
+pyaudio
+streamlit-webrtc
 requests
-matplotlib
+numpy
+openai-whisper
