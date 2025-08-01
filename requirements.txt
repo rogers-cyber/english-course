@@ -1,10 +1,9 @@
-streamlit
+streamlit>=1.29
 gtts
-whisper
-torch
 speechrecognition
 pyaudio
 streamlit-webrtc
 requests
 numpy
 openai-whisper
+torch>=2.0
