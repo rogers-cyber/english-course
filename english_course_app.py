@@ -7,6 +7,7 @@ import base64
 import os
 import datetime
 from gtts import gTTS
+import uuid
 
 # -------- DATABASE SETUP --------
 def init_db():
