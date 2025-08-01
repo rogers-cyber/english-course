@@ -1,5 +1,5 @@
 import streamlit as st
-import random, tempfile, base64, sqlite3, os, datetime, hashlib
+import random, tempfile, base64, sqlite3, os, datetime
 from gtts import gTTS
 
 # --------------------
@@ -8,25 +8,11 @@ from gtts import gTTS
 def init_db():
     conn = sqlite3.connect("progress.db", check_same_thread=False)
     c = conn.cursor()
-    # For simplicity, drop old tables if they exist (only for dev)
-    c.execute("DROP TABLE IF EXISTS users")
-    c.execute("DROP TABLE IF EXISTS wrong_answers")
-    
     c.execute("""
-        CREATE TABLE users (
-            username TEXT PRIMARY KEY,
-            password TEXT,
-            xp INTEGER DEFAULT 0,
-            last_challenge DATE,
-            streak INTEGER DEFAULT 0
-        )
-    """)
-    c.execute("""
-        CREATE TABLE wrong_answers (
-            username TEXT,
-            question TEXT,
-            your_answer TEXT,
-            correct_answer TEXT
+        CREATE TABLE IF NOT EXISTS progress (
+            date TEXT PRIMARY KEY,
+            xp INTEGER,
+            streak INTEGER
         )
     """)
     conn.commit()
@@ -35,78 +21,45 @@ def init_db():
 conn = init_db()
 
 # --------------------
-# HELPER FUNCTIONS
+# VOCAB & GRAMMAR DATA (example sets for 3 levels)
 # --------------------
-def hash_pass(pw): 
-    return hashlib.sha256(pw.encode()).hexdigest()
-
-def register_user(username, password):
-    c = conn.cursor()
-    c.execute(
-        "INSERT OR IGNORE INTO users (username, password, xp, last_challenge, streak) VALUES (?, ?, 0, NULL, 0)",
-        (username, hash_pass(password))
-    )
-    conn.commit()
-
-def login_user(username, password):
-    c = conn.cursor()
-    c.execute("SELECT * FROM users WHERE username=? AND password=?", 
-              (username, hash_pass(password)))
-    return c.fetchone()
-
-def update_xp(username, delta):
-    c = conn.cursor()
-    c.execute("UPDATE users SET xp = xp + ? WHERE username = ?", (delta, username))
-    conn.commit()
-
-def update_streak(username, today):
-    c = conn.cursor()
-    c.execute("SELECT last_challenge, streak FROM users WHERE username=?", (username,))
-    result = c.fetchone()
-    if result:
-        last, streak = result
-    else:
-        last, streak = None, 0
-    if last != today:
-        yesterday = (datetime.date.today() - datetime.timedelta(days=1)).isoformat()
-        streak = streak + 1 if last == yesterday else 1
-        c.execute("UPDATE users SET last_challenge=?, streak=? WHERE username=?", (today, streak, username))
-        conn.commit()
-        return streak
-    return streak
-
-def log_wrong_answer(username, question, your_ans, correct_ans):
-    c = conn.cursor()
-    c.execute("INSERT INTO wrong_answers VALUES (?,?,?,?)", (username, question, your_ans, correct_ans))
-    conn.commit()
-
-def get_leaderboard():
-    return conn.execute("SELECT username, xp FROM users ORDER BY xp DESC LIMIT 5").fetchall()
-
-def get_wrong_answers(username):
-    return conn.execute("SELECT question, your_answer, correct_answer FROM wrong_answers WHERE username=?", (username,)).fetchall()
-
-# --------------------
-# VOCAB & GRAMMAR
-# --------------------
-vocab_data = {
-    "en": {
-        "apple": "a fruit",
-        "run": "to move quickly",
-        "book": "a set of pages",
+lessons = {
+    "beginner": {
+        "vocab": {
+            "apple": "a fruit",
+            "run": "to move quickly",
+            "book": "a set of pages",
+        },
+        "grammar": [
+            {"sentence": "She ___ happy.", "options": ["is", "are", "am"], "answer": "is"}
+        ]
     },
-    "es": {
-        "manzana": "una fruta",
-        "correr": "moverse rápido",
-        "libro": "conjunto de páginas"
+    "intermediate": {
+        "vocab": {
+            "challenge": "a difficult task",
+            "improve": "to get better",
+            "travel": "to go from one place to another",
+        },
+        "grammar": [
+            {"sentence": "They ___ going to the park.", "options": ["is", "are", "am"], "answer": "are"}
+        ]
+    },
+    "advanced": {
+        "vocab": {
+            "meticulous": "showing great attention to detail",
+            "ubiquitous": "present everywhere",
+            "candid": "truthful and straightforward",
+        },
+        "grammar": [
+            {"sentence": "Had I ___ known, I would have come.", "options": ["have", "has", "had"], "answer": "had"}
+        ]
     }
 }
 
-grammar = [
-    {"sentence": "She ___ happy.", "options": ["is", "are", "am"], "answer": "is"}
-]
-
-def generate_audio(word, lang):
+# --------------------
+# UTILS
+# --------------------
+def generate_audio(word, lang="en"):
     tts = gTTS(text=word, lang=lang)
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as fp:
         tts.save(fp.name)
@@ -115,111 +68,93 @@ def generate_audio(word, lang):
     os.unlink(fp.name)
     return f"<audio controls><source src='data:audio/mp3;base64,{audio}' type='audio/mp3'></audio>"
 
+def get_progress():
+    c = conn.cursor()
+    today = datetime.date.today().isoformat()
+    c.execute("SELECT xp, streak FROM progress WHERE date=?", (today,))
+    row = c.fetchone()
+    if row:
+        return row
+    else:
+        return 0, 0
+
+def update_progress(xp_delta, new_streak):
+    c = conn.cursor()
+    today = datetime.date.today().isoformat()
+    xp, streak = get_progress()
+    xp += xp_delta
+    streak = new_streak
+    c.execute("INSERT OR REPLACE INTO progress (date, xp, streak) VALUES (?, ?, ?)", (today, xp, streak))
+    conn.commit()
+
+def get_streak():
+    c = conn.cursor()
+    today = datetime.date.today()
+    yesterday = (today - datetime.timedelta(days=1)).isoformat()
+    c.execute("SELECT date, streak FROM progress ORDER BY date DESC LIMIT 1")
+    row = c.fetchone()
+    if row:
+        last_date, last_streak = row
+        if last_date == yesterday:
+            return last_streak + 1
+    return 1
+
+def get_level(xp):
+    if xp < 20:
+        return "beginner"
+    elif xp < 50:
+        return "intermediate"
+    else:
+        return "advanced"
+
 # --------------------
 # APP START
 # --------------------
-st.set_page_config(page_title="Language XP App", layout="centered")
-st.title("🧠 Language Learning with XP")
+st.set_page_config(page_title="Daily Language Lesson", layout="centered")
+st.title("🌟 Daily Language Lesson")
 
-# --------------------
-# AUTHENTICATION
-# --------------------
-menu = st.sidebar.radio("Navigation", ["Login", "Register", "Leaderboard", "Review Mistakes"])
-language = st.sidebar.selectbox("Language", ["en", "es"], format_func=lambda x: "English" if x == "en" else "Español")
+# Load progress
+xp, streak = get_progress()
+streak = get_streak()
+level = get_level(xp)
 
-if "user" not in st.session_state:
-    st.session_state.user = None
+st.info(f"Your current level is **{level.capitalize()}** with **{xp} XP** and a **{streak}-day streak** 🔥")
 
-if menu == "Register":
-    st.subheader("📝 Create Account")
-    username = st.text_input("Username", key="reg_user")
-    password = st.text_input("Password", type="password", key="reg_pw")
-    if st.button("Register"):
-        if username and password:
-            register_user(username, password)
-            st.success("User registered! Please go to Login.")
-        else:
-            st.error("Please enter username and password")
+# Select today's lesson based on level
+lesson = lessons[level]
 
-elif menu == "Login":
-    st.subheader("🔐 Login")
-    username = st.text_input("Username", key="login_user")
-    password = st.text_input("Password", type="password", key="login_pw")
-    if st.button("Login"):
-        user = login_user(username, password)
-        if user:
-            st.session_state.user = username
-            st.experimental_rerun()
-        else:
-            st.error("Invalid credentials")
+# Vocabulary quiz
+st.subheader("📖 Vocabulary")
+word = random.choice(list(lesson["vocab"].keys()))
+correct_meaning = lesson["vocab"][word]
+st.markdown(generate_audio(word), unsafe_allow_html=True)
 
-elif menu == "Leaderboard":
-    st.subheader("🏆 Leaderboard")
-    leaderboard = get_leaderboard()
-    if leaderboard:
-        for u, xp in leaderboard:
-            st.write(f"**{u}** — {xp} XP")
+options = list(lesson["vocab"].values())
+random.shuffle(options)
+choice = st.selectbox(f"What does **{word}** mean?", options)
+
+if st.button("Submit Vocabulary"):
+    if choice == correct_meaning:
+        st.success("Correct! +5 XP")
+        update_progress(5, streak)
     else:
-        st.info("No users yet.")
+        st.error(f"Wrong. Correct answer: {correct_meaning}")
 
-elif menu == "Review Mistakes":
-    st.subheader("📘 Review Mistakes")
-    if not st.session_state.user:
-        st.info("Please login first.")
+# Grammar quiz
+st.markdown("---")
+st.subheader("📝 Grammar")
+gq = random.choice(lesson["grammar"])
+st.write(gq["sentence"])
+g_choice = st.selectbox("Choose the correct word:", gq["options"])
+
+if st.button("Submit Grammar"):
+    if g_choice == gq["answer"]:
+        st.success("Correct! +5 XP")
+        update_progress(5, streak)
     else:
-        mistakes = get_wrong_answers(st.session_state.user)
-        if mistakes:
-            for q, your, correct in mistakes:
-                st.markdown(f"**Q:** {q}\n\n*You answered:* {your}\n\n✅ Correct: {correct}")
-        else:
-            st.success("No mistakes logged yet!")
+        st.error(f"Wrong. Correct answer: {gq['answer']}")
 
-# --------------------
-# MAIN LEARNING SECTION
-# --------------------
-if st.session_state.user and menu in ["Login", ""]:
-    today = datetime.date.today().isoformat()
-    c = conn.cursor()
-    c.execute("SELECT xp, last_challenge, streak FROM users WHERE username=?", (st.session_state.user,))
-    row = c.fetchone()
-    if row:
-        xp, last, streak = row
-    else:
-        xp, last, streak = 0, None, 0
+# Show XP and streak at bottom
+st.markdown("---")
+st.write(f"**XP:** {xp} | **Streak:** {streak} days | **Level:** {level.capitalize()}")
 
-    st.success(f"Welcome, **{st.session_state.user}**! XP: {xp} | Level: {'Beginner' if xp < 50 else 'Intermediate' if xp < 200 else 'Advanced'}")
-
-    streak = update_streak(st.session_state.user, today)
-    st.info(f"🔥 Streak: {streak} day{'s' if streak > 1 else ''}")
-
-    st.markdown("---")
-    word = random.choice(list(vocab_data[language].keys()))
-    correct_meaning = vocab_data[language][word]
-    st.subheader("📖 Vocabulary")
-    st.markdown(generate_audio(word, language), unsafe_allow_html=True)
-
-    options = list(vocab_data[language].values())
-    random.shuffle(options)
-    choice = st.selectbox(f"What does **{word}** mean?", options)
-
-    if st.button("Submit Vocabulary"):
-        if choice == correct_meaning:
-            st.success("Correct! +5 XP")
-            update_xp(st.session_state.user, 5)
-        else:
-            st.error(f"Wrong. Correct: {correct_meaning}")
-            log_wrong_answer(st.session_state.user, f"What does '{word}' mean?", choice, correct_meaning)
-
-    st.markdown("---")
-    st.subheader("📝 Grammar")
-    gq = grammar[0]
-    st.write(gq["sentence"])
-    g_choice = st.selectbox("Choose the correct word:", gq["options"])
-
-    if st.button("Submit Grammar"):
-        if g_choice == gq["answer"]:
-            st.success("Correct! +5 XP")
-            update_xp(st.session_state.user, 5)
-        else:
-            st.error(f"Wrong. Correct: {gq['answer']}")
-            log_wrong_answer(st.session_state.user, gq["sentence"], g_choice, gq["answer"])
