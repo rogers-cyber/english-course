@@ -83,7 +83,7 @@ def generate_audio(word, lang="en"):
     # Add a unique id (nonce) using the word + current timestamp to bust cache
     nonce = f"{word}_{int(datetime.datetime.now().timestamp())}"
     audio_html = f"""
-    <audio controls autoplay key="{nonce}">
+    <audio controls autoplay>
         <source src="data:audio/mp3;base64,{audio_b64}" type="audio/mp3">
     </audio>
     """
@@ -141,12 +141,17 @@ level = get_level(xp)
 
 st.info(f"Your current level is **{level.capitalize()}** with **{xp} XP** and a **{streak}-day streak** 🔥")
 
-# Select today's lesson based on level
 lesson = lessons[level]
+
+# Initialize session state for vocab word and options if not exist
+if "vocab_word" not in st.session_state:
+    st.session_state.vocab_word = random.choice(list(lesson["vocab"].keys()))
+    st.session_state.vocab_options = list(lesson["vocab"].values())
+    random.shuffle(st.session_state.vocab_options)
 
 # -------- Vocabulary Quiz Form --------
 with st.form("vocab_form"):
-    word = random.choice(list(lesson["vocab"].keys()))
+    word = st.session_state.vocab_word
     correct_meaning = lesson["vocab"][word]
 
     st.subheader("📖 Vocabulary")
@@ -155,10 +160,7 @@ with st.form("vocab_form"):
     st.markdown(f"*Hint:* {hint}")
     st.markdown(generate_audio(word), unsafe_allow_html=True)
 
-    options = list(lesson["vocab"].values())
-    random.shuffle(options)
-
-    choice = st.selectbox(f"Choose the correct meaning of **{word}**:", options, key="vocab_choice")
+    choice = st.selectbox(f"Choose the correct meaning of **{word}**:", st.session_state.vocab_options, key="vocab_choice")
 
     submitted_vocab = st.form_submit_button("Submit Vocabulary")
 
@@ -168,6 +170,10 @@ with st.form("vocab_form"):
             update_progress(5, streak)
         else:
             st.error(f"Wrong. Correct answer: {correct_meaning}")
+        # Reset vocab word and options after submission for next quiz
+        st.session_state.vocab_word = random.choice(list(lesson["vocab"].keys()))
+        st.session_state.vocab_options = list(lesson["vocab"].values())
+        random.shuffle(st.session_state.vocab_options)
 
 # -------- Grammar Quiz Form --------
 with st.form("grammar_form"):
