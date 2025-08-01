@@ -134,7 +134,7 @@ with col1:
             st.session_state.current_word = new_word
         else:
             st.error("Could not fetch a new word.")
-        st.experimental_rerun()
+        st.rerun()
 
 with col2:
     if st.button("🔄 New Word (No Streak Change)"):
@@ -143,7 +143,7 @@ with col2:
             st.session_state.current_word = new_word
         else:
             st.error("Could not fetch a new word.")
-        st.experimental_rerun()
+        st.rerun()
 
 # -------- STATS DISPLAY --------
 st.markdown("---")
