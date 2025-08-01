@@ -49,7 +49,6 @@ def fetch_random_word_data():
 
 # -------- AUDIO UTILITY --------
 def tts_audio(text, lang="en"):
-    # Always create new temp file and encode anew to avoid stale cache issues
     tts = gTTS(text=text, lang=lang)
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as fp:
         temp_path = fp.name
@@ -60,9 +59,13 @@ def tts_audio(text, lang="en"):
 
     os.remove(temp_path)
     audio_b64 = base64.b64encode(audio_bytes).decode()
+
+    # Generate a unique id to append as a query param to force reload
+    unique_id = uuid.uuid4()
+
     audio_html = f"""
     <audio controls autoplay>
-        <source src="data:audio/mp3;base64,{audio_b64}" type="audio/mp3">
+        <source src="data:audio/mp3;base64,{audio_b64}?id={unique_id}" type="audio/mp3">
         Your browser does not support the audio element.
     </audio>
     """
