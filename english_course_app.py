@@ -133,16 +133,18 @@ if word_data:
             know_word = st.form_submit_button("✅ I Know This Word (+5 XP)")
         with col2:
             new_word = st.form_submit_button("🔄 New Word (No XP)")
-
-    # Handle button clicks
+    
     if know_word:
         update_progress(5, streak)
         st.session_state.current_word = fetch_random_word_data()
         st.experimental_rerun()
-
+        st.stop()
+    
     elif new_word:
         st.session_state.current_word = fetch_random_word_data()
         st.experimental_rerun()
+        st.stop()
+
 
 # Show progress again at bottom
 st.markdown("---")
