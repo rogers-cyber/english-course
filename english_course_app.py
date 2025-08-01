@@ -1,131 +1,193 @@
 import streamlit as st
-import random, tempfile, base64, sqlite3
+import random, tempfile, base64, sqlite3, os, datetime, hashlib
 from gtts import gTTS
-import os
-import datetime
 
-# Optional: for offline speech‑to‑text
-try:
-    import whisper
-except:
-    whisper = None
-
+# --------------------
+# DATABASE SETUP
+# --------------------
 def init_db():
     conn = sqlite3.connect("progress.db")
     c = conn.cursor()
     c.execute("""CREATE TABLE IF NOT EXISTS users (
         username TEXT PRIMARY KEY,
+        password TEXT,
         xp INTEGER DEFAULT 0,
-        last_challenge DATE
+        last_challenge DATE,
+        streak INTEGER DEFAULT 0
+    )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS wrong_answers (
+        username TEXT,
+        question TEXT,
+        your_answer TEXT,
+        correct_answer TEXT
     )""")
     conn.commit()
     return conn
 
 conn = init_db()
 
-def register_user(name):
+# --------------------
+# HELPER FUNCTIONS
+# --------------------
+def hash_pass(pw): return hashlib.sha256(pw.encode()).hexdigest()
+
+def register_user(username, password):
     c = conn.cursor()
-    c.execute("INSERT OR IGNORE INTO users (username,xp,last_challenge) VALUES (?,?,?)",
-              (name, 0, ""))
+    c.execute("INSERT OR IGNORE INTO users (username, password, xp, last_challenge, streak) VALUES (?, ?, 0, '', 0)", 
+              (username, hash_pass(password)))
     conn.commit()
 
-def update_xp(name, delta):
+def login_user(username, password):
     c = conn.cursor()
-    c.execute("UPDATE users SET xp = xp + ? WHERE username = ?", (delta, name))
-    conn.commit()
-
-def fetch_user(name):
-    c = conn.cursor()
-    c.execute("SELECT xp,last_challenge FROM users WHERE username=?", (name,))
+    c.execute("SELECT * FROM users WHERE username=? AND password=?", 
+              (username, hash_pass(password)))
     return c.fetchone()
 
-vocab = {"apple": "a fruit", "run": "to move quickly", "book": "a set of pages"}
-grammar = [{"sentence":"She ___ happy.", "options":["is","are","am"], "answer":"is"}]
+def update_xp(username, delta):
+    c = conn.cursor()
+    c.execute("UPDATE users SET xp = xp + ? WHERE username = ?", (delta, username))
+    conn.commit()
 
-def generate_audio(word):
-    tts = gTTS(text=word, lang='en')
+def update_streak(username, today):
+    c = conn.cursor()
+    c.execute("SELECT last_challenge, streak FROM users WHERE username=?", (username,))
+    last, streak = c.fetchone()
+    if last != today:
+        streak = streak + 1 if last == (datetime.date.today() - datetime.timedelta(days=1)).isoformat() else 1
+        c.execute("UPDATE users SET last_challenge=?, streak=? WHERE username=?", (today, streak, username))
+        conn.commit()
+        return streak
+    return streak
+
+def log_wrong_answer(username, question, your_ans, correct_ans):
+    conn.execute("INSERT INTO wrong_answers VALUES (?,?,?,?)", (username, question, your_ans, correct_ans))
+    conn.commit()
+
+def get_leaderboard():
+    return conn.execute("SELECT username, xp FROM users ORDER BY xp DESC LIMIT 5").fetchall()
+
+def get_wrong_answers(username):
+    return conn.execute("SELECT question, your_answer, correct_answer FROM wrong_answers WHERE username=?", (username,)).fetchall()
+
+# --------------------
+# VOCAB & GRAMMAR
+# --------------------
+vocab_data = {
+    "en": {
+        "apple": "a fruit",
+        "run": "to move quickly",
+        "book": "a set of pages",
+    },
+    "es": {
+        "manzana": "una fruta",
+        "correr": "moverse rápido",
+        "libro": "conjunto de páginas"
+    }
+}
+
+grammar = [
+    {"sentence": "She ___ happy.", "options": ["is", "are", "am"], "answer": "is"}
+]
+
+def generate_audio(word, lang):
+    tts = gTTS(text=word, lang=lang)
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as fp:
         tts.save(fp.name)
         audio_bytes = open(fp.name, "rb").read()
     audio = base64.b64encode(audio_bytes).decode()
     return f"<audio controls><source src='data:audio/mp3;base64,{audio}' type='audio/mp3'></audio>"
 
-def transcribe_audio(wav_bytes):
-    if whisper:
-        model = whisper.load_model("base")
-        result = model.transcribe(wav_bytes)
-        return result["text"].strip()
+# --------------------
+# APP START
+# --------------------
+st.set_page_config(page_title="English XP App", layout="centered")
+st.title("🧠 Language Learning with XP")
+
+# --------------------
+# AUTHENTICATION
+# --------------------
+menu = st.sidebar.radio("Navigation", ["Login", "Register", "Leaderboard", "Review Mistakes"])
+language = st.sidebar.selectbox("Language", ["en", "es"], format_func=lambda x: "English" if x == "en" else "Español")
+
+if "user" not in st.session_state:
+    st.session_state.user = None
+
+if menu == "Register":
+    st.subheader("📝 Create Account")
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
+    if st.button("Register"):
+        if username and password:
+            register_user(username, password)
+            st.success("User registered! Go to Login.")
+        else:
+            st.error("Please enter username and password")
+
+elif menu == "Login":
+    st.subheader("🔐 Login")
+    username = st.text_input("Username", key="login_user")
+    password = st.text_input("Password", type="password", key="login_pw")
+    if st.button("Login"):
+        user = login_user(username, password)
+        if user:
+            st.session_state.user = username
+            st.experimental_rerun()
+        else:
+            st.error("Invalid credentials")
+
+elif menu == "Leaderboard":
+    st.subheader("🏆 Leaderboard")
+    for u, xp in get_leaderboard():
+        st.write(f"**{u}** — {xp} XP")
+
+elif menu == "Review Mistakes":
+    st.subheader("📘 Review Mistakes")
+    if not st.session_state.user:
+        st.info("Login first.")
     else:
-        import speech_recognition as sr
-        rec = sr.Recognizer()
-        audio = sr.AudioFile(wav_bytes)
-        with audio as source:
-            rec.adjust_for_ambient_noise(source)
-            audio_data = rec.record(source)
-        return rec.recognize_google(audio_data)
+        mistakes = get_wrong_answers(st.session_state.user)
+        if mistakes:
+            for q, your, correct in mistakes:
+                st.markdown(f"**Q:** {q}\n\n*You said:* {your}\n\n✅ Correct: {correct}")
+        else:
+            st.success("No mistakes logged yet!")
 
-# UI
-st.title("🧠 English Course with XP & Voice Scoring")
-user = st.text_input("Enter your name to begin")
-if user:
-    register_user(user)
-    xp,last = fetch_user(user)
-    st.write(f"XP: **{xp}**")
-
-    level = "Beginner" if xp<50 else "Intermediate" if xp<200 else "Advanced"
-    st.write(f"Level: **{level}**")
-
+# --------------------
+# MAIN LEARNING SECTION
+# --------------------
+if st.session_state.user and menu in ["Login", ""]:
     today = datetime.date.today().isoformat()
-    if last != today:
-        st.write("🎯 Today's challenge: Pronounce 'apple'")
-        if st.button("Complete"):
-            update_xp(user,10)
-            conn.execute("UPDATE users SET last_challenge=? WHERE username=?",(today,user))
-            conn.commit()
-            st.success("Challenge complete +10 XP!")
-    st.markdown("---")
+    xp, last, _ = conn.execute("SELECT xp, last_challenge, streak FROM users WHERE username=?", (st.session_state.user,)).fetchone()
+    
+    st.success(f"Welcome, **{st.session_state.user}**! XP: {xp} | Level: {'Beginner' if xp<50 else 'Intermediate' if xp<200 else 'Advanced'}")
 
-    word = random.choice(list(vocab.keys()))
-    st.subheader("Vocabulary Section")
-    st.markdown(generate_audio(word), unsafe_allow_html=True)
-    choice = st.selectbox("Meaning:", list(vocab.values()))
-    if st.button("Submit Vocab"):
-        if choice == vocab[word]:
+    streak = update_streak(st.session_state.user, today)
+    st.info(f"🔥 Streak: {streak} days")
+
+    st.markdown("---")
+    word = random.choice(list(vocab_data[language].keys()))
+    correct_meaning = vocab_data[language][word]
+    st.subheader("📖 Vocabulary")
+    st.markdown(generate_audio(word, language), unsafe_allow_html=True)
+    options = random.sample(list(vocab_data[language].values()), k=len(vocab_data[language]))
+    choice = st.selectbox(f"What does **{word}** mean?", options)
+    if st.button("Submit Vocabulary"):
+        if choice == correct_meaning:
             st.success("Correct! +5 XP")
-            update_xp(user,5)
+            update_xp(st.session_state.user, 5)
         else:
-            st.error(f"Wrong, answer: {vocab[word]}")
-    st.markdown("---")
-
-    st.subheader("Pronunciation Practice")
-    st.write(f"Pronounce the word **{word}** and upload your recording (.wav, .mp3)")
-    f = st.file_uploader("Upload audio recording", type=["wav","mp3"])
-    if f:
-        st.audio(f)
-        try:
-            text = transcribe_audio(f)
-            st.write("You said:",text)
-            score = 100 if text.lower() == word.lower() else max(0, 100 - 50)
-            st.write(f"Pronunciation score: **{score}/100**")
-            if score > 80:
-                update_xp(user,score//10)
-                st.success(f"+{score//10} XP earned")
-        except Exception as e:
-            st.error("Could not transcribe audio")
+            st.error(f"Wrong. Correct: {correct_meaning}")
+            log_wrong_answer(st.session_state.user, f"What does '{word}' mean?", choice, correct_meaning)
 
     st.markdown("---")
-    st.subheader("Grammar Section")
-    q = grammar[0]
-    st.write(q["sentence"])
-    g = st.selectbox("Answer:", q["options"])
+    st.subheader("📝 Grammar")
+    gq = grammar[0]
+    st.write(gq["sentence"])
+    g_choice = st.selectbox("Choose the correct word:", gq["options"])
     if st.button("Submit Grammar"):
-        if g == q["answer"]:
+        if g_choice == gq["answer"]:
             st.success("Correct! +5 XP")
-            update_xp(user,5)
+            update_xp(st.session_state.user, 5)
         else:
-            st.error(f"Wrong, correct is {q['answer']}")
-    st.markdown("---")
-
-    xp_after,last = fetch_user(user)
-    st.write(f"Total XP: **{xp_after}**")
-    st.write(f"Current Level: **{'Beginner' if xp_after<50 else 'Intermediate' if xp_after<200 else 'Advanced'}**")
+            st.error(f"Wrong. Correct: {gq['answer']}")
+            log_wrong_answer(st.session_state.user, gq["sentence"], g_choice, gq["answer"])
