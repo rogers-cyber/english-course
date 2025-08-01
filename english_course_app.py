@@ -6,13 +6,14 @@ from gtts import gTTS
 # DATABASE SETUP
 # --------------------
 def init_db():
-    conn = sqlite3.connect("progress.db")
+    conn = sqlite3.connect("progress.db", check_same_thread=False)
     c = conn.cursor()
-    # Commented out DROP TABLE to preserve data
-    # c.execute("DROP TABLE IF EXISTS users")
-
+    # For simplicity, drop the old tables if exists (only for development)
+    c.execute("DROP TABLE IF EXISTS users")
+    c.execute("DROP TABLE IF EXISTS wrong_answers")
+    
     c.execute("""
-        CREATE TABLE IF NOT EXISTS users (
+        CREATE TABLE users (
             username TEXT PRIMARY KEY,
             password TEXT,
             xp INTEGER DEFAULT 0,
@@ -21,7 +22,7 @@ def init_db():
         )
     """)
     c.execute("""
-        CREATE TABLE IF NOT EXISTS wrong_answers (
+        CREATE TABLE wrong_answers (
             username TEXT,
             question TEXT,
             your_answer TEXT,
@@ -36,12 +37,10 @@ conn = init_db()
 # --------------------
 # HELPER FUNCTIONS
 # --------------------
-def hash_pass(pw): 
-    return hashlib.sha256(pw.strip().encode()).hexdigest()
+def hash_pass(pw):
+    return hashlib.sha256(pw.encode()).hexdigest()
 
 def register_user(username, password):
-    username = username.strip()
-    password = password.strip()
     c = conn.cursor()
     c.execute(
         "INSERT OR IGNORE INTO users (username, password, xp, last_challenge, streak) VALUES (?, ?, 0, NULL, 0)",
@@ -50,13 +49,9 @@ def register_user(username, password):
     conn.commit()
 
 def login_user(username, password):
-    username = username.strip()
-    password = password.strip()
     c = conn.cursor()
-    hashed_pw = hash_pass(password)
-    # Debug print - remove in production
-    print(f"Login attempt for {username} with hash {hashed_pw}")
-    c.execute("SELECT * FROM users WHERE username=? AND password=?", (username, hashed_pw))
+    c.execute("SELECT * FROM users WHERE username=? AND password=?", 
+              (username, hash_pass(password)))
     return c.fetchone()
 
 def update_xp(username, delta):
@@ -81,10 +76,8 @@ def update_streak(username, today):
 
 def log_wrong_answer(username, question, your_ans, correct_ans):
     c = conn.cursor()
-    c.execute(
-        "INSERT INTO wrong_answers (username, question, your_answer, correct_answer) VALUES (?, ?, ?, ?)",
-        (username, question, your_ans, correct_ans)
-    )
+    c.execute("INSERT INTO wrong_answers (username, question, your_answer, correct_answer) VALUES (?, ?, ?, ?)",
+              (username, question, your_ans, correct_ans))
     conn.commit()
 
 def get_leaderboard():
@@ -124,19 +117,30 @@ def generate_audio(word, lang):
     return f"<audio controls><source src='data:audio/mp3;base64,{audio}' type='audio/mp3'></audio>"
 
 # --------------------
-# APP START
+# APP SETUP
 # --------------------
-st.set_page_config(page_title="English XP App", layout="centered")
+st.set_page_config(page_title="Language XP App", layout="centered")
 st.title("🧠 Language Learning with XP")
 
 # --------------------
-# AUTHENTICATION
+# AUTHENTICATION HANDLING
 # --------------------
+
 menu = st.sidebar.radio("Navigation", ["Login", "Register", "Leaderboard", "Review Mistakes"])
 language = st.sidebar.selectbox("Language", ["en", "es"], format_func=lambda x: "English" if x == "en" else "Español")
 
 if "user" not in st.session_state:
     st.session_state.user = None
+if "login_error" not in st.session_state:
+    st.session_state.login_error = False
+
+def do_login():
+    user = login_user(st.session_state.username, st.session_state.password)
+    if user:
+        st.session_state.user = st.session_state.username.strip()
+        st.session_state.login_error = False
+    else:
+        st.session_state.login_error = True
 
 if menu == "Register":
     st.subheader("📝 Create Account")
@@ -144,26 +148,29 @@ if menu == "Register":
     password = st.text_input("Password", type="password", key="reg_password")
     if st.button("Register"):
         if username and password:
-            register_user(username, password)
+            register_user(username.strip(), password)
             st.success("User registered! Go to Login.")
         else:
             st.error("Please enter username and password")
 
 elif menu == "Login":
     st.subheader("🔐 Login")
-    username = st.text_input("Username", key="login_user")
-    password = st.text_input("Password", type="password", key="login_pw")
+    st.text_input("Username", key="username")
+    st.text_input("Password", type="password", key="password")
     if st.button("Login"):
-        user = login_user(username, password)
-        if user:
-            st.session_state.user = username.strip()
+        do_login()
+        if st.session_state.user:
+            st.success(f"Logged in as {st.session_state.user}")
             st.experimental_rerun()
-        else:
+        elif st.session_state.login_error:
             st.error("Invalid credentials")
+    if st.session_state.user:
+        st.info(f"Already logged in as {st.session_state.user}")
 
 elif menu == "Leaderboard":
     st.subheader("🏆 Leaderboard")
-    for u, xp in get_leaderboard():
+    leaderboard = get_leaderboard()
+    for u, xp in leaderboard:
         st.write(f"**{u}** — {xp} XP")
 
 elif menu == "Review Mistakes":
