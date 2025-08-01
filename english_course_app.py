@@ -56,7 +56,6 @@ lessons = {
     }
 }
 
-# Optional simpler hints for easier understanding (can be customized)
 hints = {
     "apple": "A common fruit, often red or green.",
     "run": "To move fast on foot.",
@@ -126,57 +125,73 @@ def get_level(xp):
 st.set_page_config(page_title="Daily Language Lesson", layout="centered")
 st.title("🌟 Daily Language Lesson")
 
-# Load progress
-xp, streak = get_progress()
-streak = get_streak()
-level = get_level(xp)
+# Initialize session state
+if "vocab_submitted" not in st.session_state:
+    st.session_state.vocab_submitted = False
+if "grammar_submitted" not in st.session_state:
+    st.session_state.grammar_submitted = False
+if "xp" not in st.session_state:
+    xp, _ = get_progress()
+    st.session_state.xp = xp
+if "streak" not in st.session_state:
+    st.session_state.streak = get_streak()
 
-st.info(f"Your current level is **{level.capitalize()}** with **{xp} XP** and a **{streak}-day streak** 🔥")
-
-# Select today's lesson based on level
+level = get_level(st.session_state.xp)
 lesson = lessons[level]
 
-# Vocabulary quiz
+st.info(f"Your current level is **{level.capitalize()}** with **{st.session_state.xp} XP** and a **{st.session_state.streak}-day streak** 🔥")
+
+# --- VOCABULARY QUIZ ---
 st.subheader("📖 Vocabulary")
 
-word = random.choice(list(lesson["vocab"].keys()))
+if "vocab_word" not in st.session_state or st.session_state.vocab_submitted:
+    st.session_state.vocab_word = random.choice(list(lesson["vocab"].keys()))
+    st.session_state.vocab_submitted = False
+
+word = st.session_state.vocab_word
 correct_meaning = lesson["vocab"][word]
-
-# Show the word
-st.markdown(f"**Your word:** {word}")
-
-# Show a hint (simplified meaning)
 hint = hints.get(word, correct_meaning)
-st.markdown(f"*Hint:* {hint}")
 
-# Play audio of the word
+st.markdown(f"**Word:** {word}")
+st.markdown(f"*Hint:* {hint}")
 st.markdown(generate_audio(word), unsafe_allow_html=True)
 
-options = list(lesson["vocab"].values())
-random.shuffle(options)
-choice = st.selectbox(f"Choose the correct meaning of **{word}**:", options)
+vocab_options = list(lesson["vocab"].values())
+random.shuffle(vocab_options)
+vocab_choice = st.radio(f"What does **{word}** mean?", vocab_options, key="vocab_choice")
 
-if st.button("Submit Vocabulary"):
-    if choice == correct_meaning:
-        st.success("Correct! +5 XP")
-        update_progress(5, streak)
+if st.button("Submit Vocabulary") and not st.session_state.vocab_submitted:
+    if vocab_choice == correct_meaning:
+        st.success("Correct! +5 XP 🎉")
+        st.session_state.xp += 5
+        update_progress(5, st.session_state.streak)
     else:
         st.error(f"Wrong. Correct answer: {correct_meaning}")
+    st.session_state.vocab_submitted = True
 
-# Grammar quiz
+# --- GRAMMAR QUIZ ---
 st.markdown("---")
 st.subheader("📝 Grammar")
-gq = random.choice(lesson["grammar"])
-st.write(gq["sentence"])
-g_choice = st.selectbox("Choose the correct word:", gq["options"])
 
-if st.button("Submit Grammar"):
+if "grammar_question" not in st.session_state or st.session_state.grammar_submitted:
+    st.session_state.grammar_question = random.choice(lesson["grammar"])
+    st.session_state.grammar_submitted = False
+
+gq = st.session_state.grammar_question
+st.write(gq["sentence"])
+
+g_choice = st.radio("Choose the correct word:", gq["options"], key="grammar_choice")
+
+if st.button("Submit Grammar") and not st.session_state.grammar_submitted:
     if g_choice == gq["answer"]:
-        st.success("Correct! +5 XP")
-        update_progress(5, streak)
+        st.success("Correct! +5 XP 🎉")
+        st.session_state.xp += 5
+        update_progress(5, st.session_state.streak)
     else:
         st.error(f"Wrong. Correct answer: {gq['answer']}")
+    st.session_state.grammar_submitted = True
 
-# Show XP and streak at bottom
+# --- PROGRESS SUMMARY ---
 st.markdown("---")
-st.write(f"**XP:** {xp} | **Streak:** {streak} days | **Level:** {level.capitalize()}")
+st.write(f"**XP:** {st.session_state.xp} | **Streak:** {st.session_state.streak} days | **Level:** {level.capitalize()}")
+
