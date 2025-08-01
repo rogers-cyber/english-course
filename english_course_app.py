@@ -188,13 +188,13 @@ if st.button("Submit") and not st.session_state.answered:
 
 if st.session_state.answered:
     if st.button("Next Question"):
-        # Alternate between vocab and grammar
         if st.session_state.question_type == "vocab":
             load_new_grammar_question()
         else:
             load_new_vocab_question()
-
         st.experimental_rerun()
+        # Stop further code execution after rerun to avoid error:
+        st.stop()
 
 st.markdown("---")
 st.write("Keep practicing every day to build your streak and level up!")
