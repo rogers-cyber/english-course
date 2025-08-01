@@ -192,7 +192,7 @@ if st.session_state.answered:
             load_new_grammar_question()
         else:
             load_new_vocab_question()
-        st.experimental_rerun()
+        st.rerun()
         # Stop further code execution after rerun to avoid error:
         st.stop()
 
