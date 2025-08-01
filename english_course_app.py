@@ -144,7 +144,10 @@ st.info(f"Your current level is **{level.capitalize()}** with **{st.session_stat
 # --- VOCABULARY QUIZ ---
 st.subheader("📖 Vocabulary")
 
-if "vocab_word" not in st.session_state or st.session_state.vocab_submitted:
+# Ensure stored vocab_word is valid for the current level
+if ("vocab_word" not in st.session_state 
+    or st.session_state.vocab_submitted 
+    or st.session_state.vocab_word not in lesson["vocab"]):
     st.session_state.vocab_word = random.choice(list(lesson["vocab"].keys()))
     st.session_state.vocab_submitted = False
 
