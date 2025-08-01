@@ -25,13 +25,19 @@ conn = init_db()
 # -------- VOCAB FETCH FROM API --------
 def fetch_random_word_data():
     try:
-        word_list = ["apple", "run", "book", "happy", "dog", "challenge", "improve", "travel", "advice", "weather",
-                     "meticulous", "ubiquitous", "candid", "benevolent", "paradox"]
-        word = random.choice(word_list)
-        response = requests.get(f"https://api.dictionaryapi.dev/api/v2/entries/en/{word}")
-        if response.status_code != 200:
+        # Step 1: Get a random word from internet
+        word_resp = requests.get("https://random-word-api.herokuapp.com/word?number=1")
+        if word_resp.status_code != 200:
+            st.warning("Failed to fetch a random word.")
             return None
-        data = response.json()[0]
+        word = word_resp.json()[0]
+
+        # Step 2: Use dictionary API to get meaning
+        dict_resp = requests.get(f"https://api.dictionaryapi.dev/api/v2/entries/en/{word}")
+        if dict_resp.status_code != 200:
+            return None  # Skip if word not found in dictionary
+        data = dict_resp.json()[0]
+
         meanings = data.get("meanings", [])
         if not meanings:
             return None
