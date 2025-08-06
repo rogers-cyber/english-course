@@ -212,11 +212,19 @@ if word_data:
 
     st.markdown(f"**Meaning:** {meaning}")
 
+    # Use st.audio for reliable playback
+    audio_bytes_meaning = tts_audio(meaning)
+    st.audio(audio_bytes_meaning, format="audio/mp3")
+
     # Translate the meaning to Khmer
     khmer_translation = translate_to_khmer(meaning)
     st.markdown(f"**អត្ថន័យ:** {khmer_translation}")
     
     st.markdown(f"*Example:* _{example}_")
+
+    # Use st.audio for reliable playback
+    audio_bytes_example = tts_audio(example)
+    st.audio(audio_bytes_example, format="audio/mp3")
 
     # Translate the example to Khmer
     translation_example = translate_to_khmer(example)
@@ -252,6 +260,7 @@ with col2:
 # -------- STATS DISPLAY --------
 st.markdown("---")
 st.write(f"🔥 **Streak:** {streak} days")
+
 
 
 
