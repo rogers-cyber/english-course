@@ -42,11 +42,77 @@ def fetch_random_word_data():
         #word = word_resp.json()[0] 
 
         vocab_list = [
-            "asset", "liability", "inflation", "dividend", "portfolio", "equity", "bond", "hedge",
-            "volatility", "liquidity", "capital", "recession", "bull", "bear", "leverage", "blockchain",
-            "cryptocurrency", "bitcoin", "ethereum", "decentralization", "token", "wallet", "staking",
-            "risk", "yield", "interest", "debt", "investment", "ROI", "diversification", "hedge fund"
+            # --- Work / Office ---
+            "desk", "computer", "keyboard", "mouse", "monitor", "chair", "meeting", "deadline", "project",
+            "schedule", "email", "call", "conference", "team", "manager", "supervisor", "colleague",
+            "presentation", "report", "document", "printer", "scanner", "notebook", "pen", "marker",
+            "whiteboard", "laptop", "task", "goal", "plan", "strategy", "review", "feedback", "promotion",
+            "interview", "resume", "salary", "bonus", "office", "cubicle", "workplace", "lunch break",
+            "coffee", "tea", "focus", "deadline", "workflow", "software", "hardware",
+        
+            # --- Home / Household ---
+            "house", "apartment", "room", "kitchen", "bathroom", "bedroom", "living room", "balcony",
+            "garage", "garden", "furniture", "sofa", "table", "chair", "bed", "pillow", "blanket",
+            "lamp", "window", "door", "curtain", "fan", "air conditioner", "heater", "vacuum", "broom",
+            "mop", "cleaning", "laundry", "clothes", "washing machine", "dryer", "dishwasher", "fridge",
+            "microwave", "stove", "oven", "toaster", "sink", "mirror", "toilet", "shower", "soap", "towel",
+        
+            # --- Travel / Transportation ---
+            "car", "bus", "train", "plane", "airport", "station", "ticket", "passport", "visa", "luggage",
+            "suitcase", "bag", "map", "hotel", "reservation", "tourist", "guide", "route", "destination",
+            "taxi", "subway", "bike", "motorcycle", "driver", "license", "rental", "traffic", "road", "highway",
+            "lane", "crosswalk", "sidewalk", "bridge", "tunnel", "schedule", "delay", "boarding", "gate",
+            "arrival", "departure", "seat", "window seat", "aisle", "cruise", "ferry", "bus stop",
+        
+            # --- Sleep / Rest / Wellness ---
+            "sleep", "nap", "rest", "relax", "bed", "pillow", "mattress", "blanket", "dream", "alarm",
+            "clock", "tired", "exhausted", "snore", "sleepy", "doze", "bedtime", "night", "midnight",
+            "sleep schedule", "deep sleep", "light sleep", "wake up", "yawn", "lullaby", "silence",
+            "noise", "calm", "peaceful", "cozy", "warm", "dark", "light", "curtains", "fan", "sleepwear",
+            "pajamas", "nightlight", "sleep mask", "sleeping bag", "comfort", "restless", "insomnia",
+        
+            # --- Eating / Food ---
+            "eat", "drink", "food", "meal", "breakfast", "lunch", "dinner", "snack", "fruit", "vegetable",
+            "meat", "chicken", "beef", "pork", "fish", "rice", "noodles", "bread", "butter", "cheese",
+            "egg", "milk", "water", "juice", "tea", "coffee", "sugar", "salt", "pepper", "spoon", "fork",
+            "knife", "plate", "bowl", "cup", "glass", "napkin", "table", "chair", "kitchen", "cook",
+            "fry", "boil", "bake", "grill", "taste", "sweet", "sour", "salty", "bitter", "spicy", "hot",
+            "cold", "hungry", "thirsty", "full", "delicious", "menu", "order", "bill", "tip", "waiter",
+        
+            # --- Shopping / Money ---
+            "shop", "store", "supermarket", "mall", "market", "cart", "basket", "cash", "credit card",
+            "receipt", "change", "price", "discount", "sale", "offer", "coupon", "buy", "sell", "spend",
+            "pay", "money", "wallet", "purse", "ATM", "bank", "account", "deposit", "withdraw", "loan",
+            "budget", "cost", "cheap", "expensive", "affordable", "worth", "value", "bill", "coin",
+        
+            # --- Daily Routine / Personal Care ---
+            "wake", "shower", "brush", "toothbrush", "toothpaste", "soap", "shampoo", "conditioner",
+            "towel", "comb", "mirror", "dress", "shirt", "pants", "shorts", "shoes", "socks", "jacket",
+            "belt", "watch", "phone", "charger", "bag", "keys", "wallet", "umbrella", "raincoat", "hat",
+            "glasses", "sunglasses", "makeup", "lotion", "perfume", "deodorant", "nail", "clipper", "bath",
+            "hygiene", "clean", "wash", "dry", "iron", "fold", "organize", "schedule", "routine",
+        
+            # --- Emotions / Social ---
+            "happy", "sad", "angry", "excited", "bored", "tired", "nervous", "scared", "surprised",
+            "confused", "calm", "proud", "ashamed", "embarrassed", "kind", "mean", "friendly", "rude",
+            "polite", "honest", "lie", "laugh", "cry", "smile", "hug", "kiss", "greet", "goodbye", "hello",
+            "please", "thank you", "sorry", "excuse me", "congratulations", "cheer", "support", "trust",
+        
+            # --- Nature / Environment ---
+            "sun", "moon", "star", "sky", "cloud", "rain", "snow", "wind", "storm", "fog", "tree",
+            "flower", "grass", "bush", "forest", "river", "lake", "ocean", "mountain", "hill", "valley",
+            "sand", "rock", "soil", "weather", "climate", "season", "spring", "summer", "autumn", "winter",
+            "hot", "cold", "warm", "cool", "fresh", "natural", "wild", "plant", "animal", "bird", "fish",
+            "insect", "dog", "cat", "pet", "farm", "zoo",
+        
+            # --- Education / Learning ---
+            "school", "class", "teacher", "student", "lesson", "homework", "exam", "test", "study",
+            "learn", "book", "pen", "pencil", "notebook", "paper", "desk", "blackboard", "chalk",
+            "subject", "math", "science", "history", "geography", "language", "English", "dictionary",
+            "translate", "understand", "question", "answer", "grade", "score", "pass", "fail", "classmate",
+            "principal", "uniform", "library", "read", "write", "spell", "repeat", "practice", "memorize"
         ]
+
 
         # Step 2: Pick a random word
         word = random.choice(vocab_list)
@@ -186,6 +252,7 @@ with col2:
 # -------- STATS DISPLAY --------
 st.markdown("---")
 st.write(f"🔥 **Streak:** {streak} days")
+
 
 
 
