@@ -35,11 +35,21 @@ conn = init_db()
 def fetch_random_word_data():
     try:
         # Step 1: Get a random word from internet
-        word_resp = requests.get("https://random-word-api.herokuapp.com/word?number=1")
-        if word_resp.status_code != 200:
-            st.warning("Failed to fetch a random word.")
-            return None
-        word = word_resp.json()[0]
+        #word_resp = requests.get("https://random-word-api.herokuapp.com/word?number=1")
+        #if word_resp.status_code != 200:
+            #st.warning("Failed to fetch a random word.")
+            #return None
+        #word = word_resp.json()[0] 
+
+        vocab_list = [
+            "asset", "liability", "inflation", "dividend", "portfolio", "equity", "bond", "hedge",
+            "volatility", "liquidity", "capital", "recession", "bull", "bear", "leverage", "blockchain",
+            "cryptocurrency", "bitcoin", "ethereum", "decentralization", "token", "wallet", "staking",
+            "risk", "yield", "interest", "debt", "investment", "ROI", "diversification", "hedge fund"
+        ]
+
+        # Step 2: Pick a random word
+        word = random.choice(vocab_list)
 
         # Step 2: Use dictionary API to get meaning
         dict_resp = requests.get(f"https://api.dictionaryapi.dev/api/v2/entries/en/{word}")
@@ -176,6 +186,7 @@ with col2:
 # -------- STATS DISPLAY --------
 st.markdown("---")
 st.write(f"🔥 **Streak:** {streak} days")
+
 
 
 
