@@ -138,7 +138,7 @@ if word_data:
 
     # Translate the meaning to Khmer
     khmer_translation = translate_to_khmer(meaning)
-    st.markdown(f"**អត្ថន័យជាភាសាខ្មែរ:** {khmer_translation}")
+    st.markdown(f"**អត្ថន័យ:** {khmer_translation}")
     
     st.markdown(f"*Example:* _{example}_")
 
@@ -176,6 +176,7 @@ with col2:
 # -------- STATS DISPLAY --------
 st.markdown("---")
 st.write(f"🔥 **Streak:** {streak} days")
+
 
 
 
