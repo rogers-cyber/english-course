@@ -8,22 +8,13 @@ import datetime
 from gtts import gTTS
 
 # -------- TRANSLATION TO KHMER --------
+from googletrans import Translator
+
 def translate_to_khmer(text):
     try:
-        response = requests.post(
-            "https://libretranslate.de/translate",
-            headers={"Content-Type": "application/json"},
-            json={
-                "q": text,
-                "source": "en",
-                "target": "km",
-                "format": "text"
-            }
-        )
-        if response.status_code == 200:
-            return response.json()["translatedText"]
-        else:
-            return f"⚠️ Translation failed: {response.status_code}"
+        translator = Translator()
+        translated = translator.translate(text, src='en', dest='km')
+        return translated.text
     except Exception as e:
         return f"⚠️ Error: {e}"
 
@@ -179,6 +170,7 @@ with col2:
 # -------- STATS DISPLAY --------
 st.markdown("---")
 st.write(f"🔥 **Streak:** {streak} days")
+
 
 
 
