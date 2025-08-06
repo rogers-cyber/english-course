@@ -8,13 +8,11 @@ import datetime
 from gtts import gTTS
 
 # -------- TRANSLATION TO KHMER --------
-from googletrans import Translator
+from deep_translator import GoogleTranslator
 
 def translate_to_khmer(text):
     try:
-        translator = Translator()
-        translated = translator.translate(text, src='en', dest='km')
-        return translated.text
+        return GoogleTranslator(source='en', target='km').translate(text)
     except Exception as e:
         return f"⚠️ Error: {e}"
 
@@ -170,6 +168,7 @@ with col2:
 # -------- STATS DISPLAY --------
 st.markdown("---")
 st.write(f"🔥 **Streak:** {streak} days")
+
 
 
 
