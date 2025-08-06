@@ -11,7 +11,7 @@ from gtts import gTTS
 def translate_to_khmer(text):
     try:
         response = requests.post(
-            "https://translate.argosopentech.com/translate",
+            "https://libretranslate.de/translate",
             headers={"Content-Type": "application/json"},
             json={
                 "q": text,
@@ -179,5 +179,6 @@ with col2:
 # -------- STATS DISPLAY --------
 st.markdown("---")
 st.write(f"🔥 **Streak:** {streak} days")
+
 
 
