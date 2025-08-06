@@ -230,10 +230,6 @@ if word_data:
     translation_example = translate_to_khmer(example)
     st.markdown(f"**ឧទាហរណ៍:** {translation_example}")
 
-    # Use st.audio for reliable playback
-    audio_bytes_example_km = tts_audio(translation_example,"km")
-    st.audio(audio_bytes_example_km, format="audio/mp3")
-
 # Buttons to update progress or get new word
 col1, col2 = st.columns(2)
 
@@ -264,6 +260,7 @@ with col2:
 # -------- STATS DISPLAY --------
 st.markdown("---")
 st.write(f"🔥 **Streak:** {streak} days")
+
 
 
 
