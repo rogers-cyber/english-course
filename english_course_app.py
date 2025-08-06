@@ -126,6 +126,10 @@ if word_data:
     st.subheader("🧠 Vocabulary")
     st.markdown(f"### 🔤 Word: `{word}`")
 
+    # Translate the word to Khmer
+    translation_word = translate_to_khmer(word)
+    st.markdown(f"**អត្ថន័យជាភាសាខ្មែរ:** {translation_word}")
+    
     # Use st.audio for reliable playback
     audio_bytes = tts_audio(word)
     st.audio(audio_bytes, format="audio/mp3")
@@ -137,7 +141,7 @@ if word_data:
     st.markdown(f"**អត្ថន័យជាភាសាខ្មែរ:** {khmer_translation}")
     
     st.markdown(f"*Example:* _{example}_")
-st.markdown(translate_to_khmer("I like learning languages."))
+
 # Buttons to update progress or get new word
 col1, col2 = st.columns(2)
 
@@ -168,6 +172,7 @@ with col2:
 # -------- STATS DISPLAY --------
 st.markdown("---")
 st.write(f"🔥 **Streak:** {streak} days")
+
 
 
 
