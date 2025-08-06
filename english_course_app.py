@@ -148,7 +148,7 @@ if word_data:
     st.markdown(f"**អត្ថន័យជាភាសាខ្មែរ:** {khmer_translation}")
     
     st.markdown(f"*Example:* _{example}_")
-
+st.markdown(translate_to_khmer("I like learning languages."))
 # Buttons to update progress or get new word
 col1, col2 = st.columns(2)
 
@@ -179,6 +179,7 @@ with col2:
 # -------- STATS DISPLAY --------
 st.markdown("---")
 st.write(f"🔥 **Streak:** {streak} days")
+
 
 
 
