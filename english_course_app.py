@@ -128,7 +128,7 @@ if word_data:
 
     # Translate the word to Khmer
     translation_word = translate_to_khmer(word)
-    st.markdown(f"**អត្ថន័យជាភាសាខ្មែរ:** {translation_word}")
+    st.markdown(f"**ភាសាខ្មែរ:** {translation_word}")
     
     # Use st.audio for reliable playback
     audio_bytes = tts_audio(word)
@@ -172,6 +172,7 @@ with col2:
 # -------- STATS DISPLAY --------
 st.markdown("---")
 st.write(f"🔥 **Streak:** {streak} days")
+
 
 
 
