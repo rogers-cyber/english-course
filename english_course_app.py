@@ -7,6 +7,26 @@ import os
 import datetime
 from gtts import gTTS
 
+# -------- TRANSLATION TO KHMER --------
+def translate_to_khmer(text):
+    try:
+        response = requests.post(
+            "https://libretranslate.de/translate",
+            params={
+                "q": text,
+                "source": "en",
+                "target": "km",
+                "format": "text"
+            },
+            headers={"Content-Type": "application/x-www-form-urlencoded"}
+        )
+        if response.status_code == 200:
+            return response.json()["translatedText"]
+        else:
+            return "⚠️ Translation failed."
+    except Exception as e:
+        return f"⚠️ Error: {e}"
+
 # -------- DATABASE SETUP --------
 def init_db():
     conn = sqlite3.connect("progress.db", check_same_thread=False)
@@ -122,6 +142,11 @@ if word_data:
     st.audio(audio_bytes, format="audio/mp3")
 
     st.markdown(f"**Meaning:** {meaning}")
+
+    # Translate the meaning to Khmer
+    khmer_translation = translate_to_khmer(meaning)
+    st.markdown(f"**អត្ថន័យជាភាសាខ្មែរ:** {khmer_translation}")
+    
     st.markdown(f"*Example:* _{example}_")
 
 # Buttons to update progress or get new word
@@ -154,3 +179,4 @@ with col2:
 # -------- STATS DISPLAY --------
 st.markdown("---")
 st.write(f"🔥 **Streak:** {streak} days")
+
