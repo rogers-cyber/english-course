@@ -142,6 +142,10 @@ if word_data:
     
     st.markdown(f"*Example:* _{example}_")
 
+    # Translate the example to Khmer
+    translation_example = translate_to_khmer(example)
+    st.markdown(f"**អត្ថន័យជាភាសាខ្មែរ:** {translation_example}")
+
 # Buttons to update progress or get new word
 col1, col2 = st.columns(2)
 
@@ -172,6 +176,7 @@ with col2:
 # -------- STATS DISPLAY --------
 st.markdown("---")
 st.write(f"🔥 **Streak:** {streak} days")
+
 
 
 
