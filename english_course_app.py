@@ -11,19 +11,19 @@ from gtts import gTTS
 def translate_to_khmer(text):
     try:
         response = requests.post(
-            "https://libretranslate.de/translate",
-            params={
+            "https://translate.argosopentech.com/translate",
+            headers={"Content-Type": "application/json"},
+            json={
                 "q": text,
                 "source": "en",
                 "target": "km",
                 "format": "text"
-            },
-            headers={"Content-Type": "application/x-www-form-urlencoded"}
+            }
         )
         if response.status_code == 200:
             return response.json()["translatedText"]
         else:
-            return "⚠️ Translation failed."
+            return f"⚠️ Translation failed: {response.status_code}"
     except Exception as e:
         return f"⚠️ Error: {e}"
 
@@ -179,4 +179,5 @@ with col2:
 # -------- STATS DISPLAY --------
 st.markdown("---")
 st.write(f"🔥 **Streak:** {streak} days")
+
 
